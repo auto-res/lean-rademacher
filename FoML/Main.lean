@@ -62,7 +62,7 @@ theorem uniformDeviation_mcdiarmid
         (uniformDeviation_measurable X hf) hε ht'
     _ = _ := congr_arg _ (by ring)
 
-theorem main [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι] [IsProbabilityMeasure μ]
+theorem main_countable [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι] [IsProbabilityMeasure μ]
     (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
     (X : Ω → 𝒳) (hX : Measurable X)
     {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b)
@@ -94,7 +94,7 @@ theorem main' [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι
   have ht : 0 ≤ t := div_nonneg (by norm_num) (mul_nonneg (by norm_num) (sq_nonneg b))
   have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by field_simp [t]; ring)
   calc
-    _ ≤ (- ε ^ 2 * t * n).exp := main (μ := μ) f hf X hX (le_of_lt hb) hf' ht' hε
+    _ ≤ (- ε ^ 2 * t * n).exp := main_countable (μ := μ) f hf X hX (le_of_lt hb) hf' ht' hε
     _ = _ := by field_simp [t]
 
 open TopologicalSpace
@@ -166,7 +166,7 @@ theorem main_separable [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
       rw [RademacherComplexity_eq n f hf'' μ X]
       rw [uniformDeviation_eq n f hf X hX hf' hf'' μ]
     _ ≤ (- ε ^ 2 * t * n).exp := by
-      apply main f' _ X hX hb _ ht' hε
+      apply main_countable f' _ X hX hb _ ht' hε
       · intro i
         measurability
       · exact fun i x ↦ hf' (denseSeq ι i) x
