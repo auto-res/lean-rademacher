@@ -1,5 +1,7 @@
+import FoML.Rademacher
 import FoML.McDiarmid
 import FoML.BoundedDifference
+import FoML.SeparableSpaceSup
 
 section
 
@@ -38,7 +40,7 @@ theorem uniformDeviation_mcdiarmid
     {X : Ω → 𝒳} (hX : Measurable X)
     (hf : ∀ i, Measurable (f i))
     {b : ℝ} (hb : 0 ≤ b) (hf': ∀ i x, |f i x| ≤ b)
-    {t : ℝ} (ht : 0 ≤ t) (ht' : t * b ^ 2 ≤ 1 / 2)
+    {t : ℝ} (ht' : t * b ^ 2 ≤ 1 / 2)
     {ε : ℝ} (hε : 0 ≤ ε) :
     (μⁿ (fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω) -
       μⁿ[fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω)] ≥ ε)).toReal ≤
@@ -48,7 +50,6 @@ theorem uniformDeviation_mcdiarmid
   have hn : 0 < n := Nat.pos_of_ne_zero hn
   have hn' : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
   let c : Fin n → ℝ := fun i ↦ (n : ℝ)⁻¹ * 2 * b
-  have ht : (n : ℝ) * t / 2 ≥ 0 := div_nonneg (mul_nonneg ((Nat.cast_nonneg n)) ht) (by linarith)
   have ht' : (n : ℝ) * t / 2 * ∑ i, (c i) ^ 2 ≤ 1 := by
     apply le_of_mul_le_mul_left _ (show (0 : ℝ) < 1 / 2 from by linarith)
     calc
@@ -57,22 +58,22 @@ theorem uniformDeviation_mcdiarmid
   have hfX : ∀ i, Measurable (f i ∘ X) := fun i => (hf i).comp hX
   calc
     _ ≤ (-2 * ε ^ 2 * (n * t / 2)).exp :=
-      mcdiarmid_inequality_aux' hX (uniformDeviation_bounded_difference hn X hfX hb hf')
-        (uniformDeviation_measurable X hf).stronglyMeasurable hε ht ht'
+      mcdiarmid_inequality_pos' hX (uniformDeviation_bounded_difference hn X hfX hb hf')
+        (uniformDeviation_measurable X hf) hε ht'
     _ = _ := congr_arg _ (by ring)
 
 theorem main [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι] [IsProbabilityMeasure μ]
     (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
     (X : Ω → 𝒳) (hX : Measurable X)
     {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b)
-    {t : ℝ} (ht : 0 ≤ t) (ht' : t * b ^ 2 ≤ 1 / 2)
+    {t : ℝ} (ht' : t * b ^ 2 ≤ 1 / 2)
     {ε : ℝ} (hε : 0 ≤ ε) :
     (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
       (- ε ^ 2 * t * n).exp := by
   by_cases hn : n = 0
   · simpa [hn] using toReal_prob_le_one
   have hn : 0 < n := Nat.pos_of_ne_zero hn
-  apply le_trans _ (uniformDeviation_mcdiarmid (μ := μ) hX hf hb hf' ht ht' hε)
+  apply le_trans _ (uniformDeviation_mcdiarmid (μ := μ) hX hf hb hf' ht' hε)
   simp only [ge_iff_le, ne_eq, measure_ne_top, not_false_eq_true, ENNReal.toReal_le_toReal]
   apply measure_mono
   intro ω h
@@ -93,7 +94,98 @@ theorem main' [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι
   have ht : 0 ≤ t := div_nonneg (by norm_num) (mul_nonneg (by norm_num) (sq_nonneg b))
   have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by field_simp [t]; ring)
   calc
-    _ ≤ (- ε ^ 2 * t * n).exp := main (μ := μ) f hf X hX (le_of_lt hb) hf' ht ht' hε
+    _ ≤ (- ε ^ 2 * t * n).exp := main (μ := μ) f hf X hX (le_of_lt hb) hf' ht' hε
+    _ = _ := by field_simp [t]
+
+open TopologicalSpace
+
+lemma empiricalRademacherComplexity_eq
+    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι]
+    (n : ℕ) {f : ι → (𝒳 → ℝ)} (hf : ∀ x : 𝒳, Continuous fun i ↦ f i x) (x : Fin n → 𝒳) :
+    empiricalRademacherComplexity n f x = empiricalRademacherComplexity n (f ∘ denseSeq ι) x := by
+  dsimp [empiricalRademacherComplexity]
+  congr
+  ext i
+  apply separableSpaceSup_eq_real
+  continuity
+
+lemma RademacherComplexity_eq
+    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι]
+    (n : ℕ) (f : ι → (𝒳 → ℝ)) (hf : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    (μ : Measure Ω) (X : Ω → 𝒳) :
+    rademacherComplexity n f μ X = rademacherComplexity n (f ∘ denseSeq ι) μ X := by
+  dsimp [rademacherComplexity]
+  congr
+  ext i
+  exact empiricalRademacherComplexity_eq n hf (X ∘ i)
+
+lemma uniformDeviation_eq
+    [MeasurableSpace 𝒳]
+    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
+    (n : ℕ) (f : ι → 𝒳 → ℝ)
+    (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b : ℝ} (hf' : ∀ i x, |f i x| ≤ b)
+    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    (μ : Measure Ω) [IsFiniteMeasure μ] :
+    uniformDeviation n f μ X = uniformDeviation n (f ∘ denseSeq ι) μ X := by
+  ext y
+  dsimp [uniformDeviation]
+  apply separableSpaceSup_eq_real
+  apply Continuous.abs
+  apply Continuous.sub
+  · continuity
+  · have : ∀ (x : ι), ∀ᵐ (a : Ω) ∂μ, ‖f x (X a)‖ ≤ b := by
+      intro i
+      filter_upwards with ω
+      exact hf' i (X ω)
+    apply MeasureTheory.continuous_of_dominated _ this
+    · apply MeasureTheory.integrable_const
+    · filter_upwards with ω
+      continuity
+    · intro i
+      apply Measurable.aestronglyMeasurable
+      measurability
+
+theorem main_separable [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
+    [TopologicalSpace ι] [SeparableSpace ι]  [FirstCountableTopology ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b)
+    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    {t : ℝ} (ht' : t * b ^ 2 ≤ 1 / 2)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
+      (- ε ^ 2 * t * n).exp := by
+  let f' := f ∘ denseSeq ι
+  calc
+    _ = (μⁿ (fun ω ↦ 2 • rademacherComplexity n f' μ X + ε ≤ uniformDeviation n f' μ X (X ∘ ω))).toReal := by
+      congr
+      ext ω
+      rw [RademacherComplexity_eq n f hf'' μ X]
+      rw [uniformDeviation_eq n f hf X hX hf' hf'' μ]
+    _ ≤ (- ε ^ 2 * t * n).exp := by
+      apply main f' _ X hX hb _ ht' hε
+      · intro i
+        measurability
+      · exact fun i x ↦ hf' (denseSeq ι i) x
+
+theorem separableSpace_main' [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
+    [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b : ℝ} (hb : 0 < b) (hf' : ∀ i x, |f i x| ≤ b)
+    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
+      (- ε ^ 2 * n / (2 * b ^ 2)).exp := by
+  let t := 1 / (2 * b ^ 2)
+  have ht : 0 ≤ t := div_nonneg (by norm_num) (mul_nonneg (by norm_num) (sq_nonneg b))
+  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by field_simp [t]; ring)
+  calc
+    _ ≤ (- ε ^ 2 * t * n).exp := main_separable (μ := μ) f hf X hX (le_of_lt hb) hf' hf'' ht' hε
     _ = _ := by field_simp [t]
 
 end
