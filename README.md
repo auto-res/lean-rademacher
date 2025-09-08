@@ -11,3 +11,16 @@ scenarios including deep learning and kernel methods. We formalize key concepts 
 the empirical and population Rademacher complexities, and establish generalization error bounds through
 formal proofs of McDiarmid’s inequality, Hoeffding’s lemma, and symmetrization arguments.
 
+## How to Run
+- Open a terminal. Run the following commands.
+  ```bash
+  git clone https://github.com/auto-res/lean-rademacher.git
+  cd lean-rademacher
+
+  # get Mathlib4 cache 
+  lake exe cache get
+  ```
+- Launch VS code,
+- open the folder ```lean-rademacher```,
+- select the file ```FoML/Main.lean```, and
+- push ```Restart File``` button to rebuild the project.
