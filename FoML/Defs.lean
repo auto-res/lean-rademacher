@@ -18,6 +18,16 @@ instance : Fintype (Signs n) := inferInstanceAs (Fintype (Fin n → { x // x ∈
 instance : CoeFun (Signs n) (fun _ => Fin n → ℝ) where
   coe σ k := σ k
 
+instance : Neg { x // x ∈ ({-1, 1} : Finset ℤ) } where
+  neg x := ⟨-x.val, by
+    cases x with
+    | mk val h =>
+      simp at h
+      cases h
+      · simp [*]
+      · simp [*]
+  ⟩
+
 variable {Ω : Type u} [MeasurableSpace Ω] {ι : Type v} {𝒳 : Type w}
 
 set_option hygiene false
