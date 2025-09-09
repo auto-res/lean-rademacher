@@ -48,11 +48,12 @@ theorem rademacher_sum_variance_zero
     have t : (∑ k : Fin n, ∑ l : Fin n, ⟪g k, g l⟫ - ∑ k : Fin n, ∑ l : Fin n, if k ≠ l then (0 : ℝ) else ⟪g k, g l⟫) =
       ∑ k : Fin n, ∑ l : Fin n, if k ≠ l then ⟪g k, g l⟫ else (0 : ℝ) := by
       calc
-      _ = ∑ k : Fin n, ((∑ l : Fin n, ⟪g k, g l⟫) - (∑ l : Fin n, if k ≠ l then (0 : ℝ) else ⟪g k, g l⟫)) := Eq.symm Finset.sum_sub_distrib
+      _ = ∑ k : Fin n, ((∑ l : Fin n, ⟪g k, g l⟫) - (∑ l : Fin n, if k ≠ l then (0 : ℝ) else ⟪g k, g l⟫)) := by
+        simp
       _ = ∑ k : Fin n, ∑ l : Fin n, (⟪g k, g l⟫ - if k ≠ l then (0 : ℝ) else ⟪g k, g l⟫) := by
         apply congrArg
         ext k
-        exact Eq.symm Finset.sum_sub_distrib
+        simp
       _ = ∑ k : Fin n, ∑ l : Fin n, if k ≠ l then ⟪g k, g l⟫ - (0 : ℝ) else ⟪g k, g l⟫ - ⟪g k, g l⟫ := by
         apply congrArg
         ext k
