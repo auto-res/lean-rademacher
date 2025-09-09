@@ -2,7 +2,7 @@ import FoML.Rademacher
 import FoML.McDiarmid
 import FoML.BoundedDifference
 import FoML.SeparableSpaceSup
-import FoML.linear_predictor_l2
+import FoML.LinearPredictorL2
 
 section
 
