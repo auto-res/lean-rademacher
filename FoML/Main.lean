@@ -194,13 +194,13 @@ local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
 theorem linear_predictor_l2_bound
     [Nonempty ι]
     (d : ℕ)
-    (W X : ℝ)
-    (hx : 0 ≤ X) (hw : 0 ≤ W)
-    (Y' : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
-    (w' : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W):
+    (bW bX : ℝ)
+    (hx : 0 ≤ bX) (hw : 0 ≤ bW)
+    (X : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) bX)
+    (W : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) bW):
     empiricalRademacherComplexity
-      n (fun (i : ι) a ↦ ⟪((Subtype.val ∘ w') i), a⟫) (Subtype.val ∘ Y') ≤
-    X * W / √(n : ℝ) := by
-  exact linear_predictor_l2_bound' (d := d) (n := n) (W := W) (X := X) hx hw Y' w'
+      n (fun (i : ι) a => ⟪((Subtype.val ∘ W) i), a⟫) (Subtype.val ∘ X) ≤
+    bX * bW / √(n : ℝ) := by
+  exact linear_predictor_l2_bound' (d := d) (n := n) (W := bW) (X := bX) hx hw X W
 
 end
