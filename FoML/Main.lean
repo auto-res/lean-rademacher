@@ -2,6 +2,7 @@ import FoML.Rademacher
 import FoML.McDiarmid
 import FoML.BoundedDifference
 import FoML.SeparableSpaceSup
+import FoML.linear_predictor_l2
 
 section
 
@@ -187,5 +188,19 @@ theorem separableSpace_main' [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι
   calc
     _ ≤ (- ε ^ 2 * t * n).exp := main_separable (μ := μ) f hf X hX (le_of_lt hb) hf' hf'' ht' hε
     _ = _ := by field_simp [t]
+
+local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
+
+theorem linear_predictor_l2_bound
+    [Nonempty ι]
+    (d : ℕ)
+    (W X : ℝ)
+    (hx : 0 ≤ X) (hw : 0 ≤ W)
+    (Y' : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (w' : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W):
+    empiricalRademacherComplexity
+      n (fun (i : ι) a ↦ ⟪((Subtype.val ∘ w') i), a⟫) (Subtype.val ∘ Y') ≤
+    X * W / √(n : ℝ) := by
+  exact linear_predictor_l2_bound' (d := d) (n := n) (W := W) (X := X) hx hw Y' w'
 
 end
