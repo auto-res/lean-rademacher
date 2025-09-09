@@ -12,7 +12,7 @@ variable (d n : ℕ) (Y : Fin n → EuclideanSpace ℝ (Fin d)) (σ : Signs n)
 
 local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
 
-theorem extracted_2:
+theorem weighted_sum_norm_squared_expansion:
     ‖∑ k : Fin n, (σ k : ℝ) • Y k‖ ^ 2 = ∑ k : Fin n, ∑ l : Fin n, ⟪(σ k : ℝ) • Y k, (σ l : ℝ) • Y l⟫ := by
   let g := fun l ↦ (σ l : ℝ) • Y l
   calc
@@ -23,7 +23,7 @@ theorem extracted_2:
     ext k
     exact inner_sum Finset.univ g (g k)
 
-theorem extracted_3:
+theorem individual_weighted_norms_sum:
     ∑ k : Fin n, ‖(σ k : ℝ) • Y k‖ ^ 2 = ∑ k : Fin n, ∑ l : Fin n, if k ≠ l then 0 else  ⟪(σ k : ℝ) • Y k, (σ l : ℝ) • Y l⟫ := by
   let g := fun l ↦ (σ l : ℝ) • Y l
   trans ∑ k : Fin n, ⟪g k, g k⟫
@@ -33,7 +33,7 @@ theorem extracted_3:
   · dsimp [g]
     simp
 
-theorem extracted_1
+theorem rademacher_sum_variance_zero
     (Y : Fin n → EuclideanSpace ℝ (Fin d)):
     ∑ σ : Signs n, (‖∑ k : Fin n, (σ k : ℝ) • Y k‖ ^ 2 - ∑ k : Fin n, ‖(σ k : ℝ) • Y k‖ ^ 2) = 0 := by
   calc
@@ -41,7 +41,7 @@ theorem extracted_1
     apply congrArg
     ext σ
     let g (l : Fin n) : EuclideanSpace ℝ (Fin d) := (σ l : ℝ) • (Y l)
-    rw [extracted_2 d n Y σ, extracted_3 d n Y σ]
+    rw [weighted_sum_norm_squared_expansion d n Y σ, individual_weighted_norms_sum d n Y σ]
     suffices (∑ k : Fin n, ∑ l : Fin n, ⟪g k, g l⟫ - ∑ k : Fin n, ∑ l : Fin n, if k ≠ l then (0 : ℝ) else ⟪g k, g l⟫) =
       ∑ k : Fin n, ∑ l : Fin n, if k ≠ l then ⟪g k, g l⟫ else (0 : ℝ) from by
       exact this
@@ -281,7 +281,7 @@ theorem linear_predictor_l2_bound'
     apply congrArg
     apply congrArg
     apply congrArg
-    have := extracted_1 d n Y
+    have := rademacher_sum_variance_zero d n Y
     simp only [Int.reduceNeg, Finset.sum_sub_distrib] at this
     linarith
   _ = W * (n : ℝ)⁻¹ * √(
