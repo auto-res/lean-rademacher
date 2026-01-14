@@ -15,9 +15,6 @@ def Signs (n : ℕ) : Type := Fin n → ({-1, 1} : Finset ℤ)
 
 instance : Fintype (Signs n) := inferInstanceAs (Fintype (Fin n → { x // x ∈ {-1, 1} }))
 
-instance : CoeFun (Signs n) (fun _ => Fin n → ℝ) where
-  coe σ k := σ k
-
 instance : Neg { x // x ∈ ({-1, 1} : Finset ℤ) } where
   neg x := ⟨-x.val, by
     cases x with
@@ -43,5 +40,9 @@ def rademacherComplexity (n : ℕ) (f : ι → 𝒳 → ℝ) (μ : Measure Ω) (
 
 def uniformDeviation (n : ℕ) (f : ι → 𝒳 → ℝ) (μ : Measure Ω) (X : Ω → 𝒳) : (Fin n → 𝒳) → ℝ :=
   fun y ↦ ⨆ i, |(n : ℝ)⁻¹ * ∑ k : Fin n, f i (y k) - μ[fun ω' ↦ f i (X ω')]|
+
+def empiricalRademacherComplexity_without_abs (n : ℕ) (f : ι → 𝒳 → ℝ) (x : Fin n → 𝒳) : ℝ :=
+  (Fintype.card (Signs n) : ℝ)⁻¹ *
+    ∑ σ : Signs n, ⨆ i, (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (x k)
 
 end

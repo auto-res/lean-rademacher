@@ -3,6 +3,7 @@ import FoML.McDiarmid
 import FoML.BoundedDifference
 import FoML.SeparableSpaceSup
 import FoML.LinearPredictorL2
+import FoML.DudleyEntropy
 
 section
 
@@ -24,7 +25,7 @@ theorem le_two_smul_rademacher [Nonempty ι] [Countable ι] [IsProbabilityMeasur
     μⁿ[fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω)] ≤ 2 • rademacherComplexity n f μ X := by
   apply le_of_mul_le_mul_left _ (Nat.cast_pos.mpr hn)
   convert expectation_le_rademacher (μ := μ) (n := n) hf hb hf' using 1
-  · rw [← integral_mul_left]
+  · rw [← integral_const_mul]
     apply integral_congr_ae (Filter.EventuallyEq.of_eq _)
     ext ω
     rw [uniformDeviation, Real.mul_iSup_of_nonneg (by norm_num)]
@@ -47,14 +48,16 @@ theorem uniformDeviation_mcdiarmid
       μⁿ[fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω)] ≥ ε)).toReal ≤
         (- ε ^ 2 * t * n).exp := by
   by_cases hn : n = 0
-  · simpa [hn] using toReal_prob_le_one
+  · simpa [hn] using measureReal_le_one
   have hn : 0 < n := Nat.pos_of_ne_zero hn
   have hn' : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
   let c : Fin n → ℝ := fun i ↦ (n : ℝ)⁻¹ * 2 * b
   have ht' : (n : ℝ) * t / 2 * ∑ i, (c i) ^ 2 ≤ 1 := by
     apply le_of_mul_le_mul_left _ (show (0 : ℝ) < 1 / 2 from by linarith)
     calc
-      _ = t * b ^ 2 := by field_simp [c]; ring
+      _ = t * b ^ 2 := by
+        simp only [c, Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+        field_simp
       _ ≤ _ := by linarith
   have hfX : ∀ i, Measurable (f i ∘ X) := fun i => (hf i).comp hX
   calc
@@ -72,7 +75,7 @@ theorem main_countable [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Cou
     (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
       (- ε ^ 2 * t * n).exp := by
   by_cases hn : n = 0
-  · simpa [hn] using toReal_prob_le_one
+  · simpa [hn] using measureReal_le_one
   have hn : 0 < n := Nat.pos_of_ne_zero hn
   apply le_trans _ (uniformDeviation_mcdiarmid (μ := μ) hX hf hb hf' ht' hε)
   simp only [ge_iff_le, ne_eq, measure_ne_top, not_false_eq_true, ENNReal.toReal_le_toReal]
@@ -93,10 +96,10 @@ theorem main' [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι
       (- ε ^ 2 * n / (2 * b ^ 2)).exp := by
   let t := 1 / (2 * b ^ 2)
   have ht : 0 ≤ t := div_nonneg (by norm_num) (mul_nonneg (by norm_num) (sq_nonneg b))
-  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by field_simp [t]; ring)
+  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by dsimp only [t]; field_simp)
   calc
     _ ≤ (- ε ^ 2 * t * n).exp := main_countable (μ := μ) f hf X hX (le_of_lt hb) hf' ht' hε
-    _ = _ := by field_simp [t]
+    _ = _ := by dsimp only [t]; field_simp
 
 open TopologicalSpace
 
@@ -184,23 +187,33 @@ theorem separableSpace_main' [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι
       (- ε ^ 2 * n / (2 * b ^ 2)).exp := by
   let t := 1 / (2 * b ^ 2)
   have ht : 0 ≤ t := div_nonneg (by norm_num) (mul_nonneg (by norm_num) (sq_nonneg b))
-  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by field_simp [t]; ring)
+  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by dsimp only [t]; field_simp)
   calc
     _ ≤ (- ε ^ 2 * t * n).exp := main_separable (μ := μ) f hf X hX (le_of_lt hb) hf' hf'' ht' hε
-    _ = _ := by field_simp [t]
+    _ = _ := by dsimp only [t]; field_simp
 
 local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
 
 theorem linear_predictor_l2_bound
     [Nonempty ι]
     (d : ℕ)
-    (bW bX : ℝ)
-    (hx : 0 ≤ bX) (hw : 0 ≤ bW)
-    (X : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) bX)
-    (W : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) bW):
+    (W X : ℝ)
+    (hx : 0 ≤ X) (hw : 0 ≤ W)
+    (Y' : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (w' : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W):
     empiricalRademacherComplexity
-      n (fun (i : ι) a => ⟪((Subtype.val ∘ W) i), a⟫) (Subtype.val ∘ X) ≤
-    bX * bW / √(n : ℝ) := by
-  exact linear_predictor_l2_bound' (d := d) (n := n) (W := bW) (X := bX) hx hw X W
+      n (fun (i : ι) a ↦ ⟪((Subtype.val ∘ w') i), a⟫) (Subtype.val ∘ Y') ≤
+    X * W / √(n : ℝ) := by
+  exact linear_predictor_l2_bound' (d := d) (n := n) (W := W) (X := X) hx hw Y' w'
+
+theorem dudley_entropy_integral
+  {Z : Type v} {m : ℕ} {ι : Type u} [Nonempty ι] {F : ι → Z → ℝ} {S : Fin m → Z} {c ε : ℝ}
+  (ε_pos : 0 < ε) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+  (m_pos : 0 < m) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c)
+  (ε_le_c_div_2 : ε < c/2) :
+    empiricalRademacherComplexity_without_abs m F S ≤
+    (4 * ε + (12 / Real.sqrt m) *
+    (∫ (x : ℝ) in ε..(c/2),√(Real.log (coveringNumber h' x)))) := by
+  exact dudley_entropy_integral' ε_pos h' m_pos cs ε_le_c_div_2
 
 end

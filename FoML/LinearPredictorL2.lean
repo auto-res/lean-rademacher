@@ -1,6 +1,6 @@
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import FoML.Symmetrization
-import FoML.RademacherProperty
+import FoML.RademacherVariableProperty
 
 universe v
 
@@ -237,7 +237,7 @@ theorem linear_predictor_l2_bound'
       let g (σ : Signs n) := ‖∑ k : Fin n, (σ k : ℝ) • (Y k)‖ * ((Fintype.card (Signs n) : ℝ))⁻¹
       suffices (∑ σ : Signs n, f σ * g σ) ^ 2 ≤ (∑ σ : Signs n, (f σ) ^ 2) * (∑ σ : Signs n, (g σ) ^ 2) from by
         dsimp [f, g] at this
-        simp only [Int.reduceNeg, Nat.cast_pow, Nat.cast_ofNat, one_mul, one_pow,
+        simp only [Int.reduceNeg, one_mul, one_pow,
           Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_one] at this
         have p : (((Fintype.card (Signs n)) : ℝ)⁻¹ * ∑ σ : Signs n, ‖∑ k : Fin n, (σ k : ℝ) • (Y k)‖) =
           (∑ x_1 : Signs n, ‖∑ k : Fin n, (x_1 k : ℝ) • (Y k)‖ * ((Fintype.card (Signs n)) : ℝ)⁻¹) := by
@@ -309,7 +309,7 @@ theorem linear_predictor_l2_bound'
     rw [abs_of_nonneg]
     exact px k
     exact hx
-    exact le_of_lt (by simp [(by dsimp [Signs]; simp : 0 < (Fintype.card (Signs n) : ℝ))])
+    exact le_of_lt (by simp)
     · by_cases hn : 0 < n
       · aesop
       · simp only [not_lt, nonpos_iff_eq_zero] at hn
@@ -336,7 +336,7 @@ theorem linear_predictor_l2_bound'
   _ = X * W * ((n : ℝ)⁻¹ * √(n : ℝ)) := by ring
   _ = X * W * (1 / √(n : ℝ)) := by
     by_cases hn : 0 < n
-    · rw [(by apply eq_one_div_of_mul_eq_one_left; field_simp : ((n : ℝ)⁻¹ * √(n : ℝ)) = (1 / √(n : ℝ)))]
+    · rw [(by apply eq_one_div_of_mul_eq_one_left; field_simp; exact sq_sqrt (Nat.cast_nonneg' n) : ((n : ℝ)⁻¹ * √(n : ℝ)) = (1 / √(n : ℝ)))]
     · simp only [not_lt, nonpos_iff_eq_zero] at hn
       rw [hn]
       simp

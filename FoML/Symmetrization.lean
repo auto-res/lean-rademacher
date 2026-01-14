@@ -2,6 +2,7 @@ import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import Mathlib.MeasureTheory.Integral.Prod
 import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.Probability.Notation
+import Mathlib.Tactic.Cases
 import FoML.ExpectationInequalities
 import FoML.Defs
 
@@ -10,8 +11,8 @@ open MeasureTheory ProbabilityTheory Real
 universe u v w
 
 /-
-# Symmetrization argument の形式化
-Xを一つだけ固定する方式
+# Formalizing the symmetrization argument
+Method where we fix exactly one instance of `X`
 -/
 
 variable {Z : Type w} {ι : Type v}
@@ -96,23 +97,22 @@ lemma measure_equiv : (MeasureTheory.Measure.pi (fun _ ↦ μ) : Measure (Fin n.
   rw [this, Measure.prod_prod, Measure.pi_pi]
 
   calc
-    _ = ∏ i : Fin (n+1), Fin.snoc (μ ∘ s ∘ Fin.castSucc) (μ (s n)) i := by
+    _ = ∏ i : Fin (n+1), Fin.snoc (μ ∘ s ∘ Fin.castSucc) (μ (s (Fin.last n))) i := by
       rw [mul_comm, Fin.prod_snoc]
       simp
     _ = _ := by
       congr
       ext i
       dsimp [Fin.snoc]
-      simp only [Fin.natCast_eq_last, ite_eq_left_iff, not_lt]
+      simp only [ite_eq_left_iff, not_lt]
       intro h
       congr
-      apply congr_arg
       apply Eq.symm
       exact Fin.last_le_iff.mp h
 
 lemma sigma_eq (f : ℤ → (Signs n) → ℝ) :
   ∑ σ' ∈ ({-1,1} : Finset ℤ), ∑ σ : Signs n, f σ' σ
-  = ∑ σ : Signs (n + 1), f (σ n) (Fin.init σ)  := by
+  = ∑ σ : Signs (n + 1), f (σ (Fin.last n)) (Fin.init σ)  := by
   calc
     _ = ∑ σ : ({-1,1} : Finset ℤ) × (Signs n), f σ.1 σ.2 := by
       exact Eq.symm (Fintype.sum_prod_type _)
@@ -140,7 +140,7 @@ lemma boundedness₀ {b : ℝ} (h𝓕' : ∀ (I : ι) (z : Z), |f I z| ≤ b)
   calc
     _ ≤ |f I (X ω.1) - f I (X ω.2)| + |c I| := by apply abs_add_le
     _ ≤ b+b + |c I| := by
-      apply add_le_add_right
+      apply add_le_add_left
       exact bound_sub h𝓕'
     _ ≤ _ := by linarith [hC I]
 
@@ -154,7 +154,7 @@ lemma boundedness₁ {b : ℝ} (h𝓕' : ∀ (I : ι) (z : Z), |f I z| ≤ b)
   calc
     _ ≤ |σ * (f I (X ω.1) - f I (X ω.2))| + |c I| := by apply abs_add_le
     _ ≤ b+b + |c I| := by
-      apply add_le_add_right
+      apply add_le_add_left
       rw [abs_mul, abs_sigma σ]
       simp only [one_mul]
       exact bound_sub h𝓕'
@@ -188,7 +188,7 @@ lemma inineq (ω : Ω × Ω) (ω': Fin n → Ω × Ω) {c : ι → ℝ}:
     2⁻¹ ^ n * ∑ σ : Signs n,
     ⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + (f I (X ω.1) - f I (X ω.2) + c I))
   = 2⁻¹ ^ (n+1) * ∑ σ : Signs (n + 1),
-    (⨆ I : ι, ∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2)) + (σ n * (f I (X ω.1) - f I (X ω.2)) + c I)) := by
+    (⨆ I : ι, ∑ i : Fin n, σ (Fin.castSucc i) * (f I (X (ω' i).1) - f I (X (ω' i).2)) + (σ (Fin.last n) * (f I (X ω.1) - f I (X ω.2)) + c I)) := by
   calc
     _ = 2⁻¹ ^ (n+1) * ∑ σ' ∈ ({-1, 1} : Finset ℤ), (∑ σ : Signs n,
     ⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + (σ' * (f I (X ω.1) - f I (X ω.2)) + c I)) := by
@@ -200,7 +200,7 @@ lemma inineq (ω : Ω × Ω) (ω': Fin n → Ω × Ω) {c : ι → ℝ}:
       ring_nf
     _ = _ := by
       rw [sigma_eq]
-      simp only [inv_pow, Int.reduceNeg, Fin.natCast_eq_last, Fin.coe_eq_castSucc,
+      simp only [inv_pow, Int.reduceNeg,
         mul_eq_mul_left_iff, inv_eq_zero, ne_eq, AddLeftCancelMonoid.add_eq_zero, one_ne_zero,
         and_false, not_false_eq_true, pow_eq_zero_iff, OfNat.ofNat_ne_zero, or_false]
       rfl
@@ -271,7 +271,7 @@ lemma bound_isum' [Nonempty ι] {b : ℝ} (h𝓕' : ∀ (I : ι) (z : Z), |f I z
   intro I
   calc
     _ ≤ |∑ i : Fin n, (f I (X (ω i).1) - f I (X (ω i).2))| + |c I| := by apply abs_add_le
-    _ ≤ n*(b+b) + |c I| := by apply add_le_add_right (bound_lem h𝓕' ω I)
+    _ ≤ n*(b+b) + |c I| := by apply add_le_add_left (bound_lem h𝓕' ω I)
     _ ≤ _ := (add_le_add_iff_left (↑n * (b + b))).mpr (hC I)
 
 omit [MeasurableSpace Ω] in
@@ -300,7 +300,7 @@ lemma bound_isum [Nonempty ι] {b : ℝ} (h𝓕' : ∀ (I : ι) (z : Z), |f I z|
   intro I
   calc
     _ ≤ |∑ i : Fin n, (σ i) * (f I (X (ω i).1) - f I (X (ω i).2))| + |c I| := by apply abs_add_le
-    _ ≤ n*(b+b) + |c I| := by apply add_le_add_right (bound_lem' h𝓕' ω I σ)
+    _ ≤ n*(b+b) + |c I| := by apply add_le_add_left (bound_lem' h𝓕' ω I σ)
     _ ≤ _ := (add_le_add_iff_left (↑n * (b + b))).mpr (hC I)
 
 lemma integrable₀ [Countable ι] [Nonempty ι]
@@ -320,7 +320,7 @@ lemma integrable₀ [Countable ι] [Nonempty ι]
       apply Measurable.sub
       · exact (h𝓕 I).comp <| measurable_fst.comp measurable_fst
       · exact (h𝓕 I).comp <| measurable_snd.comp measurable_fst
-  · apply @MeasureTheory.hasFiniteIntegral_of_bounded _ _ _ _ _ _ _ (n*(b+b)+(b+b+C))
+  · apply @MeasureTheory.HasFiniteIntegral.of_bounded _ _ _ _ _ _ _ (n*(b+b)+(b+b+C))
     filter_upwards with ω
     dsimp
     exact bound_isum' h𝓕' (boundedness₀ h𝓕' hC ω.1) ω.2
@@ -349,7 +349,7 @@ lemma bound_σsum [Nonempty ι]
       _ = _ := by
         simp only [Int.reduceNeg, Finset.card_univ, Finset.mem_insert, Finset.mem_singleton,
           Fintype.card_pi, Fintype.card_coe, reduceCtorEq, not_false_eq_true,
-          Finset.card_insert_of_not_mem, Finset.card_singleton, Nat.reduceAdd, Finset.prod_const,
+          Finset.card_insert_of_notMem, Finset.card_singleton, Nat.reduceAdd, Finset.prod_const,
           Fintype.card_fin, smul_add, nsmul_eq_mul, Nat.cast_pow, Nat.cast_ofNat]
         ring_nf
   calc
@@ -384,7 +384,7 @@ theorem integrable₁' [Countable ι] [Nonempty ι]
     · apply (h𝓕 I).comp
       apply measurable_snd.comp
       exact measurable_pi_apply i
-  · apply @MeasureTheory.hasFiniteIntegral_of_bounded _ _ _ _ _ _ _ (n*(b+b)+C)
+  · apply @MeasureTheory.HasFiniteIntegral.of_bounded _ _ _ _ _ _ _ (n*(b+b)+C)
     filter_upwards with ω'
     dsimp
     exact bound_σsum h𝓕' hC ω'
@@ -436,7 +436,7 @@ theorem integrable₂ [Countable ι] [Nonempty ι]
       apply Measurable.sub
       · exact (h𝓕 I).comp <| measurable_fst.comp measurable_fst
       · exact (h𝓕 I).comp <| measurable_snd.comp measurable_fst
-  · apply @MeasureTheory.hasFiniteIntegral_of_bounded _ _ _ _ _ _ _ (n*(b+b)+(b+b+C))
+  · apply @MeasureTheory.HasFiniteIntegral.of_bounded _ _ _ _ _ _ _ (n*(b+b)+(b+b+C))
     filter_upwards with ω'
     dsimp
     apply abs_expectation_le_of_abs_le_const
@@ -451,8 +451,8 @@ theorem integrable₃ [Countable ι] [Nonempty ι]
       2⁻¹ ^ (n + 1) *
         ∑ σ : Fin (n + 1) → ({-1, 1} : Finset ℤ),
           ⨆ I,
-            ∑ i : Fin n, (σ i) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) +
-              ((σ n) * (f I (X ω.1.1) - f I (X ω.1.2)) + c I))
+            ∑ i : Fin n, (σ (Fin.castSucc i)) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) +
+              ((σ (Fin.last n)) * (f I (X ω.1.1) - f I (X ω.1.2)) + c I))
     ((μ.prod μ).prod (Measure.pi fun _ ↦ μ.prod μ)) := by
   constructor
   · apply Measurable.aestronglyMeasurable
@@ -471,32 +471,33 @@ theorem integrable₃ [Countable ι] [Nonempty ι]
       apply Measurable.sub
       · exact (h𝓕 I).comp <| measurable_fst.comp measurable_fst
       · exact (h𝓕 I).comp <| measurable_snd.comp measurable_fst
-  · apply @MeasureTheory.hasFiniteIntegral_of_bounded _ _ _ _ _ _ _ (n*(b+b)+(b+b+C))
+  · apply @MeasureTheory.HasFiniteIntegral.of_bounded _ _ _ _ _ _ _ (n*(b+b)+(b+b+C))
     filter_upwards with ω
     dsimp
     rw [abs_mul, abs_of_pos (by simp)]
     have : |∑ σ : Fin (n+1) → ({-1, 1} : Finset ℤ),
-      ⨆ I : ι, ∑ i : Fin n, (σ i) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) + ((σ ↑n) * (f I (X ω.1.1) - f I (X ω.1.2)) + c I)|
+      ⨆ I : ι, ∑ i : Fin n, (σ (Fin.castSucc i)) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) + ((σ (Fin.last n)) * (f I (X ω.1.1) - f I (X ω.1.2)) + c I)|
       ≤ 2^(n+1) * (n*(b+b)+(b+b+C)) := by
       calc
         _ ≤ ∑ σ : Fin (n+1) → ({-1, 1} : Finset ℤ),
-          |⨆ I : ι, ∑ i : Fin n, (σ i) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) + ((σ ↑n) * (f I (X ω.1.1) - f I (X ω.1.2)) + c I)| := by
+          |⨆ I : ι, ∑ i : Fin n, (σ (Fin.castSucc i)) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) + ((σ (Fin.last n)) * (f I (X ω.1.1) - f I (X ω.1.2)) + c I)| := by
           apply Finset.abs_sum_le_sum_abs
         _ ≤ ∑ σ : Fin (n+1) → ({-1, 1} : Finset ℤ), (n*(b+b)+(b+b+C)) := by
           apply Finset.sum_le_sum
           intro σ _
           apply bound_isum h𝓕'
-          exact boundedness₁ h𝓕' hC ω.1 (σ n)
+          exact boundedness₁ h𝓕' hC ω.1 (σ (Fin.last n))
         _ = (Finset.univ : Finset (Fin (n+1) → ({-1, 1} : Finset ℤ))).card • (n*(b+b)+(b+b+C)) := Finset.sum_const (n*(b+b)+(b+b+C))
         _ = _ := by
           simp only [Int.reduceNeg, Finset.card_univ, Finset.mem_insert, Finset.mem_singleton,
             Fintype.card_pi, Fintype.card_coe, reduceCtorEq, not_false_eq_true,
-            Finset.card_insert_of_not_mem, Finset.card_singleton, Nat.reduceAdd, Finset.prod_const,
+            Finset.card_insert_of_notMem, Finset.card_singleton, Nat.reduceAdd, Finset.prod_const,
             Fintype.card_fin, smul_add, nsmul_eq_mul, Nat.cast_pow, Nat.cast_ofNat]
           ring_nf
     calc
       _ ≤ 2⁻¹^(n+1) * (2^(n+1) * (n*(b+b)+(b+b+C))) := mul_le_mul_of_nonneg_left this (by simp)
-      _ = _ := by simp
+      _ = _ := by simp only [inv_pow, ne_eq, Nat.add_eq_zero_iff, one_ne_zero, and_false,
+        not_false_eq_true, pow_eq_zero_iff, OfNat.ofNat_ne_zero, inv_mul_cancel_left₀]
 
 lemma ineq2 (ω : Ω × Ω) [Countable ι] [Nonempty ι] (h𝓕 : ∀ I : ι, Measurable (f I ∘ X))
   {b : ℝ} (h𝓕': ∀ I : ι, ∀ z : Z, |f I z| ≤ b)
@@ -506,8 +507,8 @@ lemma ineq2 (ω : Ω × Ω) [Countable ι] [Nonempty ι] (h𝓕 : ∀ I : ι, Me
     (⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + (f I (X ω.2) - f I (X ω.1) + c I))] +
     (μ2n)[fun ω' ↦ 2⁻¹ ^ n * ∑ σ : Signs n,
     (⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + (f I (X ω.1) - f I (X ω.2) + c I))])
-  = (μ2n)[fun ω' ↦ 2⁻¹ ^ (n+1) * ∑ σ : Signs (n + 1),
-    (⨆ I : ι, ∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2)) + (σ n * (f I (X ω.1) - f I (X ω.2)) + c I))] := by
+  = (μ2n)[fun ω' ↦ (2 : ℝ)⁻¹ ^ (n+1) * ∑ σ : Signs (n + 1),
+    (⨆ I : ι, ∑ i : Fin n, σ (Fin.castSucc i) * (f I (X (ω' i).1) - f I (X (ω' i).2)) + (σ (Fin.last n) * (f I (X ω.1) - f I (X ω.2)) + c I))] := by
   let μ2n : Measure ((Fin n) → Ω × Ω):= MeasureTheory.Measure.pi (fun _ ↦ μ.prod μ)
   calc
     _ = (2 : ℝ)⁻¹ * ((μ2n)[fun ω' ↦ (2⁻¹ ^ n * ∑ σ : Signs n,
@@ -524,7 +525,7 @@ lemma ineq2 (ω : Ω × Ω) [Countable ι] [Nonempty ι] (h𝓕 : ∀ I : ι, Me
     2⁻¹ ^ n * ∑ σ : Signs n,
     ⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + (f I (X ω.1) - f I (X ω.2) + c I))] := by
       apply Eq.symm
-      apply integral_mul_left
+      apply integral_const_mul
     _ = _ := by
       apply congr_arg
       ext ω'
@@ -567,11 +568,11 @@ lemma aux₃ [Countable ι] [Nonempty ι] (h𝓕 : ∀ I : ι, Measurable (f I �
         apply congr_arg
         ext ω
         dsimp
-        exact (ineq ω h𝓕' hC ih) -- かっこを外すと謎のエラーになる
+        exact (ineq ω h𝓕' hC ih) -- Removing the parentheses triggers an unexpected error
       _ = (2:ℝ)⁻¹ * ((μ.prod μ)[fun ω'' ↦ (fun ω ↦ ((μ2n)[fun ω' ↦ 2⁻¹ ^ n * ∑ σ : Signs n, ⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + ((f I (X ω.2) - f I (X ω.1)) + c I)])) ω''.swap] +
             (μ.prod μ)[fun ω ↦ (μ2n)[fun ω' ↦ 2⁻¹ ^ n * ∑ σ : Signs n, ⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + ((f I (X ω.1) - f I (X ω.2)) + c I)]]) := by
-        dsimp
-        field_simp
+        grind only [= Prod.snd_swap, = Prod.swap_prod_mk, = Prod.fst_swap, cases eager Prod,
+          cases Or]
       _ = (2:ℝ)⁻¹ * ((μ.prod μ)[fun ω ↦ (μ2n)[fun ω' : Fin n → (Ω × Ω) ↦ (2:ℝ)⁻¹ ^ n * ∑ σ : Signs n,
           ⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + ((f I (X ω.2) - f I (X ω.1)) + c I)]] +
           (μ.prod μ)[fun ω ↦ (μ2n)[fun ω' ↦ 2⁻¹ ^ n * ∑ σ : Signs n,
@@ -594,15 +595,15 @@ lemma aux₃ [Countable ι] [Nonempty ι] (h𝓕 : ∀ I : ι, Measurable (f I �
           (μ2n)[fun ω' ↦ 2⁻¹ ^ n * ∑ σ : Signs n,
           ⨆ I : ι, (∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2))) + ((f I (X ω.1) - f I (X ω.2)) + c I)])] := by
           apply Eq.symm
-          apply integral_mul_left
-      _ = (μ.prod μ)[fun ω ↦ (μ2n)[fun ω' ↦  2⁻¹ ^ (n+1) * ∑ σ : Signs (n + 1),
-        (⨆ I : ι, ∑ i : Fin n, σ i * (f I (X (ω' i).1) - f I (X (ω' i).2)) + (σ n * (f I (X ω.1) - f I (X ω.2)) + c I))]] := by
+          apply integral_const_mul
+      _ = (μ.prod μ)[fun ω ↦ (μ2n)[fun ω' ↦  (2:ℝ)⁻¹ ^ (n+1) * ∑ σ : Signs (n + 1),
+        (⨆ I : ι, ∑ i : Fin n, σ (Fin.castSucc i) * (f I (X (ω' i).1) - f I (X (ω' i).2)) + (σ (Fin.last n) * (f I (X ω.1) - f I (X ω.2)) + c I))]] := by
         apply congr_arg
         ext ω
         dsimp
         exact ineq2 ω h𝓕 h𝓕' hC
       _ = ((μ.prod μ).prod μ2n)[fun ω ↦  2⁻¹ ^ (n+1) * ∑ σ : Signs (n + 1),
-        (⨆ I : ι, ∑ i : Fin n, σ i * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) + (σ n * (f I (X ω.1.1) - f I (X ω.1.2)) + c I))] := by
+        (⨆ I : ι, ∑ i : Fin n, σ (Fin.castSucc i) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)) + (σ (Fin.last n) * (f I (X ω.1.1) - f I (X ω.1.2)) + c I))] := by
         apply Eq.symm
         apply integral_prod
         exact integrable₃ h𝓕 h𝓕' hC
@@ -619,20 +620,17 @@ lemma aux₃ [Countable ι] [Nonempty ι] (h𝓕 : ∀ I : ι, Measurable (f I �
         have : ∑ i : Fin (n + 1), (σ i) *
           (f I (X (@Fin.snoc n (fun _ ↦ Ω × Ω) ω.2 ω.1 i).1) - f I (X (@Fin.snoc n (fun _ ↦ Ω × Ω) ω.2 ω.1 i).2))
           = ∑ i : Fin (n + 1),
-            Fin.snoc (fun i : Fin n ↦ (σ i) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)))
-            ((σ n) * (f I (X ω.1.1) - f I (X ω.1.2))) i := by
+            Fin.snoc (fun i : Fin n ↦ (σ (Fin.castSucc i)) * (f I (X (ω.2 i).1) - f I (X (ω.2 i).2)))
+            ((σ (Fin.last n)) * (f I (X ω.1.1) - f I (X ω.1.2))) i := by
           congr
           ext i
           dsimp [Fin.snoc]
           if h : i.1 < n then
             rw [dif_pos h, dif_pos h]
-            congr
-            exact Eq.symm (Fin.cast_val_eq_self i)
           else
             rw [dif_neg h, dif_neg h]
             congr
             simp only [not_lt] at h
-            simp only [Fin.natCast_eq_last]
             exact Fin.last_le_iff.mp h
         rw [this, Fin.sum_snoc, add_assoc]
       _ = (((μ.prod μ).prod μ2n).map (Fin.snocEquiv fun _ ↦ (Ω × Ω)))[(fun ω : Fin (n+1) → Ω × Ω
@@ -742,7 +740,7 @@ theorem abs_symmetrization_equation [Countable ι] [Nonempty ι] (h𝓕 : ∀ I 
           exact h𝓕' I z
         else
           rw [if_neg h]
-          simp only [Pi.neg_apply, abs_neg, f']
+          simp only [Pi.neg_apply, abs_neg]
           exact h𝓕' I z
       exact symmetrization_equation h𝓕₂ h𝓕'₂
     _ = _ := by

@@ -51,7 +51,7 @@ theorem separableSpaceSup_eq {X : Type u} [TopologicalSpace X] [SeparableSpace X
     _ = sSup (closure (Set.range f)) := by
       exact sSup_eq_closure_sSup (Set.range_nonempty f) hf'
     _ = sSup (closure (Set.range (f ∘ denseSeq X))) := by
-      congr
+      apply congrArg
       exact closure_range_eq_closure_denseSeq hf
     _ = sSup (Set.range (f ∘ denseSeq X)) := by
       have hf'' : BddAbove (Set.range (f ∘ denseSeq X)) := by

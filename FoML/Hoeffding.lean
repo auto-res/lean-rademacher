@@ -1,3 +1,9 @@
+/-
+Copyright (c) 2024 Kei Tsukamoto. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Kei Tsukamoto, Kazumi Kasaura, Naoto Onda, Sho sonoda, Yuma Mizuno
+-/
+
 import FoML.ForMathlib.Probability.Moments
 
 /-!
@@ -46,14 +52,14 @@ theorem extracted_1 [IsProbabilityMeasure μ] (t a b : ℝ) {X : Ω → ℝ} (ht
         _ = (f t - f 0 - f' 0 * t) * 2 * t ^ 2 / t ^ 2 :=
           Eq.symm (mul_div_right_comm ((f t - f 0 - f' 0 * t) * 2) (t ^ 2) (t ^ 2))
         _ = (f t - f 0 - f' 0 * t) * 2 * (t ^ 2 / t ^ 2) := by ring
-        _ = (f t - f 0 - f' 0 * t) * 2 := by field_simp only
+        _ = (f t - f 0 - f' 0 * t) * 2 := by grind only [cases Or]
       rw [q0']
       ring
     set g : ℝ → ℝ := fun x ↦ f t - f x - f' x * (t - x) - A * (t - x) ^ 2 / 2
     have q1 : g 0 = 0 := by
       dsimp only [g, A]
       calc
-      _ = f t - f 0 - f' 0 * t - (f t - f 0 - f' 0 * t) * 2 / 2 * t ^ 2 / t ^ 2 := by field_simp
+      _ = f t - f 0 - f' 0 * t - (f t - f 0 - f' 0 * t) * 2 / 2 * t ^ 2 / t ^ 2 := by grind only
       _ = f t - f 0 - f' 0 * t - (f t - f 0 - f' 0 * t) * 2 / 2 * (t ^ 2 / t ^ 2) := by ring
       _ = f t - f 0 - f' 0 * t - (f t - f 0 - f' 0 * t) * 2 / 2 := by field_simp
       _ = f t - f 0 - f' 0 * t - (f t - f 0 - f' 0 * t) := by ring
@@ -69,14 +75,14 @@ theorem extracted_1 [IsProbabilityMeasure μ] (t a b : ℝ) {X : Ω → ℝ} (ht
       · rw [← (by ring : 0 - f' x + (f' x - f'' x * (t - x)) = - f'' x * (t - x))]
         apply ((hasDerivAt_const x _).sub (cgf_deriv_one a b hX h x)).add
         convert (cgf_deriv_two a b hX h x).mul ((hasDerivAt_id' x).add_const (-t)) using 1
-        · ext; ring
+        · ext; simp; grind only
         · dsimp [f', f'']
           have p : variance X (Measure.tilted μ fun ω ↦ x * X ω) =
               (μ.tilted fun ω ↦ x * X ω)[X ^ 2] - ((μ.tilted fun ω ↦ x * X ω)[X]) ^ 2 := by
             have _ : IsProbabilityMeasure (μ.tilted fun ω ↦ x * X ω) :=
               isProbabilityMeasure_tilted (integrable_expt_bound hX h)
             have hμ := tilted_absolutelyContinuous μ fun ω ↦ x * X ω
-            apply variance_def' <|
+            apply variance_eq_sub <|
               MeasureTheory.memLp_of_bounded (hμ h) (AEMeasurable.aestronglyMeasurable (hX.mono_ac hμ)) 2
           rw [p]
           simp only [Pi.pow_apply, mul_one]
@@ -144,9 +150,8 @@ theorem hoeffding_nonneg [IsProbabilityMeasure μ]
     mgf X μ t ≤ exp (t^2 * (b - a)^2 / 8) := by
   dsimp [mgf]
   by_cases w : t = 0;
-    · rw [w]; simp only [zero_mul, exp_zero, integral_const, measure_univ,
-    ENNReal.one_toReal, smul_eq_mul, mul_one, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true,
-    zero_pow, zero_div, le_refl]
+    · rw [w]; simp only [zero_mul, exp_zero, integral_const, probReal_univ, smul_eq_mul,
+      mul_one, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow, zero_div, le_refl]
   set f : ℝ → ℝ := fun t ↦ cgf X μ t
   suffices f t ≤ t^2 * (b - a)^2 / 8 from by
     rw [<- log_le_iff_le_exp]

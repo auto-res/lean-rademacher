@@ -30,7 +30,8 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
     _ ≤ ∫ (x : Ω), b ∂μ := by
       apply integral_mono
       · constructor
-        · measurability
+        · apply Measurable.aestronglyMeasurable
+          exact Measurable.comp measurable_abs (hf a)
         · apply HasFiniteIntegral.of_mem_Icc
           filter_upwards
           intro a_1
@@ -74,16 +75,16 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           ext k
           apply congrArg
           dsimp [Function.update]
-          simp only [eq_rec_constant, dite_eq_ite, h, g]
+          simp only [eq_rec_constant, dite_eq_ite]
           have t : f j (x k) - f j (if k = i then x' else x k) = if i = k then f j (x k) - f j x' else 0 := by
             calc
             _ = f j (x k) - (if k = i then f j x' else f j (x k)) := by
-              simp only [sub_right_inj, h, g]
+              simp only [sub_right_inj]
               exact apply_ite (f j) (k = i) x' (x k)
             _ = (if k = i then f j (x k) - f j x' else f j (x k) - f j (x k)) := by
               exact sub_ite (k = i) (f j (x k)) (f j x') (f j (x k))
             _ = _ := by
-              simp only [sub_self, h, g]
+              simp only [sub_self]
               refine Eq.symm (if_congr ?_ rfl rfl)
               exact eq_comm
           exact t
@@ -102,7 +103,7 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
       apply ciSup_sub
       rw [bddAbove_def]
       use b + b
-      simp only [Set.mem_range, forall_exists_index, forall_apply_eq_imp_iff, h, g]
+      simp only [Set.mem_range, forall_exists_index, forall_apply_eq_imp_iff]
       intro a
       have s : |(↑n)⁻¹ * ∑ k : Fin n, f a (x k)| ≤ b := by
         calc
@@ -122,11 +123,12 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           refine mul_le_mul_of_nonneg ?_ ?_ ?_ ?_
           apply Preorder.le_refl
           exact Finset.sum_le_sum fun i a_1 ↦ hf' a (x i)
-          simp only [inv_nonneg, Nat.cast_nonneg, h, g]
-          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, h, g]
+          simp only [inv_nonneg, Nat.cast_nonneg]
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+          simp only [Nat.cast_pos, mul_nonneg_iff_of_pos_left, hn, hb]
+        _ = b := by
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
           field_simp
-          exact hb
-        _ = b := by field_simp
       trans |(↑n)⁻¹ * ∑ k : Fin n, f a (x k)| + |∫ (x : Ω), f a (X x) ∂μ|
       · exact abs_sub ((↑n)⁻¹ * ∑ k : Fin n, f a (x k)) (∫ (x : Ω), f a (X x) ∂μ)
       · exact add_le_add s (s' a)
@@ -141,7 +143,7 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
       rw [bddAbove_def]
       use b + b
       intro y
-      simp only [Set.mem_range, Function.comp_apply, forall_exists_index, h, g]
+      simp only [Set.mem_range, Function.comp_apply, forall_exists_index]
       intro z hx
       rw [<- hx]
       have s0 : |(↑n)⁻¹ * ∑ k : Fin n, f z (Function.update x i x' k)| ≤ b := by
@@ -153,7 +155,7 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           refine mul_le_mul_of_nonneg ?_ ?_ ?_ ?_
           apply Preorder.le_refl
           exact Finset.abs_sum_le_sum_abs (fun i_1 ↦ f z (Function.update x i x' i_1)) Finset.univ
-          simp only [inv_nonneg, Nat.cast_nonneg, h, g]
+          simp only [inv_nonneg, Nat.cast_nonneg]
           refine Fintype.sum_nonneg ?_
           refine Pi.le_def.mpr ?_
           intro i
@@ -162,11 +164,12 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           refine mul_le_mul_of_nonneg ?_ ?_ ?_ ?_
           apply Preorder.le_refl
           exact Finset.sum_le_sum fun i_1 a ↦ hf' z (Function.update x i x' i_1)
-          simp only [inv_nonneg, Nat.cast_nonneg, h, g]
-          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, h, g]
+          simp only [inv_nonneg, Nat.cast_nonneg]
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+          simp only [Nat.cast_pos, mul_nonneg_iff_of_pos_left, hn, hb]
+        _ = b := by
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
           field_simp
-          exact hb
-        _ = b := by field_simp
       trans |(↑n)⁻¹ * ∑ k : Fin n, f z (Function.update x i x' k)| + |∫ (x : Ω), f z (X x) ∂μ|
       · exact
         abs_sub ((↑n)⁻¹ * ∑ k : Fin n, f z (Function.update x i x' k)) (∫ (x : Ω), f z (X x) ∂μ)
@@ -181,7 +184,7 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
       apply ciSup_sub
       rw [bddAbove_def]
       use b + b
-      simp only [Set.mem_range, forall_exists_index, forall_apply_eq_imp_iff, h, g]
+      simp only [Set.mem_range, forall_exists_index, forall_apply_eq_imp_iff]
       intro z
       have s0 : |(↑n)⁻¹ * ∑ k : Fin n, f z (Function.update x i x' k)| ≤ b := by
         calc
@@ -192,7 +195,7 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           refine mul_le_mul_of_nonneg ?_ ?_ ?_ ?_
           apply Preorder.le_refl
           exact Finset.abs_sum_le_sum_abs (fun i_1 ↦ f z (Function.update x i x' i_1)) Finset.univ
-          simp only [inv_nonneg, Nat.cast_nonneg, h, g]
+          simp only [inv_nonneg, Nat.cast_nonneg]
           refine Fintype.sum_nonneg ?_
           refine Pi.le_def.mpr ?_
           intro i
@@ -201,11 +204,12 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           refine mul_le_mul_of_nonneg ?_ ?_ ?_ ?_
           apply Preorder.le_refl
           exact Finset.sum_le_sum fun i_1 a ↦ hf' z (Function.update x i x' i_1)
-          simp only [inv_nonneg, Nat.cast_nonneg, h, g]
-          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, h, g]
+          simp only [inv_nonneg, Nat.cast_nonneg]
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+          simp only [Nat.cast_pos, mul_nonneg_iff_of_pos_left, hn, hb]
+        _ = b := by
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
           field_simp
-          exact hb
-        _ = b := by field_simp
       trans |(↑n)⁻¹ * ∑ k : Fin n, f z (Function.update x i x' k)| + |∫ (x : Ω), f z (X x) ∂μ|
       · exact abs_sub ((↑n)⁻¹ * ∑ k : Fin n, f z (Function.update x i x' k)) (∫ (x : Ω), f z (X x) ∂μ)
       · exact add_le_add s0 (s' z)
@@ -220,7 +224,7 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
       rw [bddAbove_def]
       use b + b
       intro y
-      simp only [Set.mem_range, Function.comp_apply, forall_exists_index, h, g]
+      simp only [Set.mem_range, Function.comp_apply, forall_exists_index]
       intro z hx
       rw [<- hx]
       have s : |(↑n)⁻¹ * ∑ k : Fin n, f z (x k)| ≤ b := by
@@ -232,7 +236,7 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           refine mul_le_mul_of_nonneg ?_ ?_ ?_ ?_
           apply Preorder.le_refl
           exact Finset.abs_sum_le_sum_abs (fun i ↦ f z (x i)) Finset.univ
-          simp only [inv_nonneg, Nat.cast_nonneg, h, g]
+          simp only [inv_nonneg, Nat.cast_nonneg]
           refine Fintype.sum_nonneg ?_
           refine Pi.le_def.mpr ?_
           intro i
@@ -241,11 +245,12 @@ theorem uniformDeviation_bounded_difference [Nonempty ι] [IsProbabilityMeasure 
           refine mul_le_mul_of_nonneg ?_ ?_ ?_ ?_
           apply Preorder.le_refl
           exact Finset.sum_le_sum fun i a_1 ↦ hf' z (x i)
-          simp only [inv_nonneg, Nat.cast_nonneg, h, g]
-          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, h, g]
+          simp only [inv_nonneg, Nat.cast_nonneg]
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+          simp only [Nat.cast_pos, mul_nonneg_iff_of_pos_left, hn, hb]
+        _ = b := by
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
           field_simp
-          exact hb
-        _ = b := by field_simp
       trans |(↑n)⁻¹ * ∑ k : Fin n, f z (x k)| + |∫ (x : Ω), f z (X x) ∂μ|
       · exact abs_sub ((↑n)⁻¹ * ∑ k : Fin n, f z (x k)) (∫ (x : Ω), f z (X x) ∂μ)
       · apply add_le_add s (s' z)

@@ -1,6 +1,6 @@
 import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import Mathlib.Probability.Notation
-import Mathlib.MeasureTheory.Measure.Typeclasses
+import Mathlib.MeasureTheory.Measure.Typeclasses.Finite
 import Mathlib.Probability.Independence.Basic
 import Mathlib.MeasureTheory.Integral.Prod
 
