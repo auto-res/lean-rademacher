@@ -35,11 +35,11 @@ Key theorems (resp. definitions) are gathered in `Main.lean` (resp. `Defs.lean`)
   - Dudley's entropy integral bound for Rademacher complexity
 
 ### Future plans
-Contributors are always welcome! 
-- Examples of generalization error bounds such
+Contributors are always welcome! (Contact: [Discord](https://discord.gg/wdTpRCR8fW))
+- Examples of generalization error bounds such as
   - for $L^1$-regularization, i.e. `FoML.Main.linear_predictor_l1_bound`
   - for RKHS
 - Examples of *covering numbers* $N$ (of a function sets $H$ w.r.t. sup-norm or empirical-norm to instantiate Dudley's entropy bound) such as
-  - the unit ball of Lipschitz-continuous functions on a compact set $K ¥subset ¥mathbb{R^d}$
+  - the unit ball of Lipschitz-continuous functions on a compact set $K \subset \mathbb{R}^d$
   - neural networks with bounded weights
 - Brushing-up key definitions/inequalies such as Rademacher complexity, Dudley's entropy bound, Azuma-Hoeffding, McDiarmid, ...
