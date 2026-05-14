@@ -29,7 +29,7 @@ noncomputable def coveringNumber {X : Type*} [PseudoMetricSpace X] {A : Set X} (
 theorem coveringNumber_eq {X : Type*} [PseudoMetricSpace X] {A : Set X} (ha : TotallyBounded A) {ε : ℝ} (hε : ε > 0) :
   coveringNumber ha ε = Nat.find (coveringNumber_exists ha hε) := dif_pos hε
 
-theorem converingNumber_antitone {X : Type*} [PseudoMetricSpace X] {A : Set X} (ha : TotallyBounded A) :
+theorem coveringNumber_antitone {X : Type*} [PseudoMetricSpace X] {A : Set X} (ha : TotallyBounded A) :
   AntitoneOn (coveringNumber ha) (Set.Ioi 0) := by
   intro ε₁ hε₁ ε₂ hε₂ hε₁ε₂
   rw [coveringNumber_eq ha hε₁, coveringNumber_eq ha hε₂]
@@ -49,10 +49,10 @@ theorem coveringNumber_nonzero {X : Type*} [PseudoMetricSpace X] {A : Set X} (hs
   simp [hε]
   exact Set.nonempty_iff_ne_empty.mp hs
 
-theorem converingNumber_aemeasurable {X : Type*} [PseudoMetricSpace X] {A : Set X} (ha : TotallyBounded A) :
+theorem coveringNumber_aemeasurable {X : Type*} [PseudoMetricSpace X] {A : Set X} (ha : TotallyBounded A) :
   AEMeasurable (coveringNumber ha) MeasureTheory.volume := by
   have h₀ : AEMeasurable (coveringNumber ha) (MeasureTheory.volume.restrict (Set.Ioi 0)) :=
-    aemeasurable_restrict_of_antitoneOn measurableSet_Ioi (converingNumber_antitone ha)
+    aemeasurable_restrict_of_antitoneOn measurableSet_Ioi (coveringNumber_antitone ha)
   convert (aemeasurable_indicator_iff measurableSet_Ioi).mpr h₀
   ext ε
   if h : ε ∈ Set.Ioi 0 then
