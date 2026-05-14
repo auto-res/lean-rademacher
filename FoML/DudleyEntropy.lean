@@ -1074,7 +1074,7 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
         repeat (norm_cast; apply coveringNumber_nonzero; simp; apply ej_pos c_pos)
         refine (mul_le_mul_iff_of_pos_left (by norm_cast; apply coveringNumber_nonzero; simp; apply ej_pos c_pos)).mpr ?_
         · norm_cast
-          apply converingNumber_antitone
+          apply coveringNumber_antitone
           repeat(apply ej_pos c_pos)
           dsimp [ej]
           refine (div_le_div_iff_of_pos_left c_pos ?_ ?_).mpr ?_
@@ -1395,7 +1395,7 @@ private lemma entropy_sum_to_integral_bound (c_pos : 0 < c) (h' : TotallyBounded
         simp at hb
         linarith
       norm_cast
-      apply converingNumber_antitone
+      apply coveringNumber_antitone
       simp
       simp at ha
       linarith
@@ -1552,7 +1552,7 @@ theorem dudley_entropy_integral' {ε : ℝ} (ε_pos : 0 < ε) (h' : TotallyBound
           · exact e_nonempty
           linarith
         · norm_cast
-          apply converingNumber_antitone
+          apply coveringNumber_antitone
           · simp
             linarith
           · simp
