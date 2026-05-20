@@ -28,7 +28,7 @@ package «FoML» where
   moreServerOptions := linter
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "master"
+  "https://github.com/leanprover-community/mathlib4.git" @ "4106ea7c1e32a9da822e7198fa528e7c6dc816d9"
 
 @[default_target]
 lean_lib «FoML» where

@@ -290,11 +290,15 @@ lemma massart_lemma_pmf
         have h : ∀ (i : Fin m), Measurable fun (σi : ({-1, 1} : Finset ℤ)) ↦ (↑m)⁻¹ * (σi.1 : ℝ) * F a (S i) := by
           intro i
           measurability
-        convert iIndepFun.comp pi_eval_iIndepFun
+        let μ0 : Measure ({-1, 1} : Finset ℤ) := (PMF.uniformOfFintype ({-1, 1} : Finset ℤ)).toMeasure
+        letI : IsProbabilityMeasure μ0 := PMF.toMeasure.isProbabilityMeasure (PMF.uniformOfFintype ({-1, 1} : Finset ℤ))
+        have hbase : iIndepFun Function.eval (Measure.pi fun _ : Fin m ↦ μ0) := by
+          simpa [μ0] using (pi_eval_iIndepFun (Ω := ({-1, 1} : Finset ℤ)) (μ := μ0) (ι := Fin m))
+        have hpi := iIndepFun.comp hbase
           (fun i ↦ fun (σi : ({-1, 1} : Finset ℤ)) => (m : ℝ)⁻¹ * (σi.1 : ℝ) * F a (S i)) h
-        · exact measurablespace_eq
-        · exact measure_eq
-        · exact PMF.toMeasure.isProbabilityMeasure (PMF.uniformOfFintype { x // x ∈ {-1, 1} })
+        convert hpi using 1
+        · simpa [measurablespace_eq]
+        · exact measure_eq (m := m)
       exact signs_coord_indep
     · intro a af
       apply MassartNotation.xy_identity

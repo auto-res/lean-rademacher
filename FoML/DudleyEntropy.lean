@@ -18,6 +18,9 @@ variable {n m : ℕ} {ι : Type u} [Nonempty ι]
 variable {F : ι → Z → ℝ}
 variable {S : Fin m → Z}
 
+private abbrev EmpiricalCoverHyp (F : ι → Z → ℝ) (S : Fin m → Z) : Prop :=
+  HasFiniteCovers (empiricalDist S) (Set.range F)
+
 theorem term_le_total_sum_of_nonneg (m : ℕ) (j : Fin m) (f : Fin m → ℝ) (h0 : ∀ j, 0 ≤ f j) :
   f j ≤ ∑ i : Fin m, f i := by
   classical
@@ -48,63 +51,71 @@ private lemma ej_pos (c_pos : 0 < c) : ∀ j, (ej c j > 0) := by
   simp only [gt_iff_lt, Nat.ofNat_pos, pow_pos, div_pos_iff_of_pos_right]
   exact c_pos
 
-private noncomputable abbrev cj (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (j : ℕ)
-  := coveringFinset h (ej_pos c_pos j)
+private noncomputable abbrev cj (c_pos : 0 < c) (h : EmpiricalCoverHyp F S) (j : ℕ)
+  := coveringFinset (empiricalDist S) h (ej_pos c_pos j)
   -- Factor out commonly used expressions
 private noncomputable abbrev signs_card_inv (m : ℕ) : ℝ := (Fintype.card (Signs m) : ℝ)⁻¹
 
 private lemma ej_nonneg (c_pos : 0 < c): ∀ j, (0 ≤ ej c j) := fun j ↦ le_of_lt (ej_pos c_pos j)
-private lemma e_nonempty :
-    (Set.univ : Set (EmpiricalFunctionSpace F S)).Nonempty := by
+private lemma range_nonempty :
+    (Set.range F : Set (Z → ℝ)).Nonempty := by
   classical
   obtain ⟨i⟩ := (inferInstance : Nonempty ι)
-  exact ⟨⟨i⟩, by simp⟩
+  exact ⟨F i, ⟨i, rfl⟩⟩
 
 omit [Nonempty ι] in
-private lemma exists_cover_approximation (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+private lemma exists_cover_approximation (c_pos : 0 < c) (h : EmpiricalCoverHyp F S)
   (fh : ι) (j : ℕ) :
-  ∃ f_j : EmpiricalFunctionSpace F S, f_j ∈ cj c_pos h j ∧ empiricalDist S (F fh) f_j ≤ ej c j := by
-  have : ⟨fh⟩ ∈ ⋃ y ∈ coveringFinset h (ej_pos c_pos j), Metric.ball y (ej c j)
-    := coveringFinset_cover h (ej_pos c_pos j) (Set.mem_univ fh)
+  ∃ f_j : Z → ℝ, f_j ∈ cj c_pos h j ∧ empiricalDist S (F fh) f_j ≤ ej c j := by
+  have : F fh ∈ ⋃ y ∈ coveringFinset (empiricalDist S) h (ej_pos c_pos j),
+      coverBall (empiricalDist S) y (ej c j) := by
+    apply coveringFinset_cover (empiricalDist S) h (ej_pos c_pos j)
+    exact ⟨fh, rfl⟩
   obtain ⟨y, hy⟩ := Set.mem_iUnion.mp this
   obtain ⟨hy', hy''⟩ := Set.mem_iUnion.mp hy
-  use ⟨y.index⟩
+  use y
   constructor
   · exact hy'
   · exact le_of_lt hy''
 
-private noncomputable def coverApprox (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) : ι → ℕ → EmpiricalFunctionSpace F S :=
+private noncomputable def coverApprox (c_pos : 0 < c) (h : EmpiricalCoverHyp F S) : ι → ℕ → Z → ℝ :=
     fun fh j => Classical.choose (exists_cover_approximation c_pos h fh j)
 
 omit [Nonempty ι] in
 private lemma coverApprox_mem_cover (c_pos : 0 < c)
-    (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    (h : EmpiricalCoverHyp F S)
     (fh : ι) (j : ℕ) : coverApprox c_pos h fh j ∈ cj c_pos h j := by
   classical
   exact (Classical.choose_spec (exists_cover_approximation c_pos h fh j)).1
 
 omit [Nonempty ι] in
+private lemma coverApprox_mem_range (c_pos : 0 < c)
+    (h : EmpiricalCoverHyp F S) (fh : ι) (j : ℕ) :
+    coverApprox c_pos h fh j ∈ Set.range F := by
+  exact coveringFinset_subset (empiricalDist S) h (ej_pos c_pos j) (coverApprox_mem_cover c_pos h fh j)
+
+omit [Nonempty ι] in
 private lemma empiricalDist_coverApprox_le_radius (c_pos : 0 < c)
-    (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    (h : EmpiricalCoverHyp F S)
     (fh : ι) (j : ℕ) : empiricalDist S (F fh) (coverApprox c_pos h fh j) ≤ ej c j := by
   classical
   exact (Classical.choose_spec (exists_cover_approximation c_pos h fh j)).2
 
-private noncomputable def chainApprox (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) : ι → ℕ → Z → ℝ :=
+private noncomputable def chainApprox (c_pos : 0 < c) (h : EmpiricalCoverHyp F S) : ι → ℕ → Z → ℝ :=
     fun fh j => if j = 0 then 0 else (coverApprox c_pos h fh j : Z → ℝ)
 
 omit [Nonempty ι] in
-private lemma chainApprox_def (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))): ∀ fh j, chainApprox c_pos h fh j = if j = 0 then 0 else (coverApprox c_pos h fh j : Z → ℝ) := by
+private lemma chainApprox_def (c_pos : 0 < c) (h : EmpiricalCoverHyp F S): ∀ fh j, chainApprox c_pos h fh j = if j = 0 then 0 else (coverApprox c_pos h fh j : Z → ℝ) := by
     intro fh j
     dsimp [chainApprox]
 
 omit [Nonempty ι] in
-private lemma chainApprox_succ (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+private lemma chainApprox_succ (c_pos : 0 < c) (h : EmpiricalCoverHyp F S)
     (fh : ι) (j : ℕ) : chainApprox c_pos h fh (j + 1) = (coverApprox c_pos h fh (j + 1) : Z → ℝ) := by
   simp [chainApprox]
 
 omit [Nonempty ι] in
-private lemma chain_decomposition (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+private lemma chain_decomposition (c_pos : 0 < c) (h : EmpiricalCoverHyp F S)
   (fh : ι) (n : ℕ):
       F fh = F fh - chainApprox c_pos h fh n + ∑ j : Fin n, (chainApprox c_pos h fh ((j : ℕ) + 1) - chainApprox c_pos h fh ((j : ℕ))) := by
   induction n with
@@ -138,7 +149,9 @@ private lemma pointwise_bound_from_empirical_norm (cs : ∀ f : ι, empiricalNor
       apply mul_le_mul_of_nonneg_left fcs
       exact le_of_lt hm_sqrt_pos
 
-private lemma chainApprox_pointwise_bound (c_pos : 0 < c) (m_pos : 0 < m) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (i_1 : ℕ) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) :
+private lemma chainApprox_pointwise_bound (c_pos : 0 < c) (m_pos : 0 < m)
+    (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (i_1 : ℕ)
+    (h : EmpiricalCoverHyp F S) :
     ∀ (i_2 : Fin m) (a : ι), |chainApprox c_pos h a i_1 (S i_2)| ≤ √↑m * c := by
   dsimp [chainApprox]
   by_cases h0 : i_1 = 0
@@ -148,13 +161,14 @@ private lemma chainApprox_pointwise_bound (c_pos : 0 < c) (m_pos : 0 < m) (cs : 
     have : 0 ≤ √↑m := by simp
     exact (mul_nonneg_iff_of_pos_right c_pos).mpr this
   · simp [h0]
-    intro i_2
-    apply pointwise_bound_from_empirical_norm
-    intro f
-    apply cs
-    exact m_pos
+    intro i_2 a
+    rcases coverApprox_mem_range c_pos h a i_1 with ⟨f, hf⟩
+    rw [← hf]
+    exact pointwise_bound_from_empirical_norm cs i_2 m_pos f
 
-private lemma chainApprox_increment_bound (c_pos : 0 < c) (m_pos : 0 < m) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (i_1 : ℕ) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) :
+private lemma chainApprox_increment_bound (c_pos : 0 < c) (m_pos : 0 < m)
+    (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (i_1 : ℕ)
+    (h : EmpiricalCoverHyp F S) :
     ∀ (i_2 : Fin m) (a : ι), |chainApprox c_pos h a (i_1 + 1) (S i_2) - chainApprox c_pos h a (i_1) (S i_2)| ≤ 2 * (√↑m * c) := by
   intro i_2 a
   calc
@@ -170,7 +184,8 @@ private lemma chainApprox_increment_bound (c_pos : 0 < c) (m_pos : 0 < m) (cs : 
     exact cs
   _ = _ := by ring
 
-theorem splitBound.bddAbove_main_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
+theorem splitBound.bddAbove_main_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c)
+  (h : EmpiricalCoverHyp F S) (n : ℕ)
   (m_pos : ¬m = 0)
   (i : Signs m):
   BddAbove (Set.range fun fh ↦ ∑ i_1, ↑↑(i i_1) * (F fh (S i_1) - chainApprox c_pos h fh n (S i_1))) := by
@@ -209,7 +224,8 @@ theorem splitBound.bddAbove_main_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiri
       simp
       grind
 
-theorem splitBound.bddAbove_increment_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
+theorem splitBound.bddAbove_increment_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c)
+  (h : EmpiricalCoverHyp F S) (n : ℕ)
   (m_pos : ¬m = 0)
   (i : Signs m) :
   BddAbove
@@ -251,7 +267,8 @@ theorem splitBound.bddAbove_increment_term {c_pos : 0 < c} (cs : ∀ (f : ι), e
               simp [Finset.sum_const, Finset.card_univ, mul_assoc, mul_left_comm, mul_comm]
 
   -- Split the target into the main term and the increment term.
-private lemma split_main_and_increment_terms {c_pos : 0 < c} (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) :
+private lemma split_main_and_increment_terms {c_pos : 0 < c} (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c)
+  (h : EmpiricalCoverHyp F S) (n : ℕ) :
   empiricalRademacherComplexity_without_abs m F S ≤
     ((m : ℝ)⁻¹ * signs_card_inv m * ∑ σ : Signs m, ⨆ fh : ι,
     (∑ i : Fin m, (σ i : ℝ) * ((F fh (S i)) - chainApprox c_pos h fh n (S i)))) +
@@ -404,12 +421,31 @@ private lemma split_main_and_increment_terms {c_pos : 0 < c} (cs : ∀ f : ι, e
       simp [Finset.mul_sum, mul_assoc]
 
 omit [Nonempty ι] in
-private lemma empiricalDist_to_chainApprox_le_ej (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (fh : ι) (n : ℕ)
+private lemma empiricalDist_to_chainApprox_le_ej (c_pos : 0 < c)
+  (h : EmpiricalCoverHyp F S) (fh : ι) (n : ℕ)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) :
   empiricalDist S (F fh) (chainApprox c_pos h fh n) ≤ c / 2 ^ n := by
   by_cases h' : n = 0
   · simpa [chainApprox_def c_pos h, h'] using cs fh
   · simpa [chainApprox_def c_pos h, h'] using (Classical.choose_spec (exists_cover_approximation c_pos h fh n)).2
+
+omit [Nonempty ι] in
+private lemma chainApprox_to_empiricalDist_le_ej (c_pos : 0 < c)
+  (h : EmpiricalCoverHyp F S) (fh : ι) (n : ℕ)
+  (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) :
+  empiricalDist S (chainApprox c_pos h fh n) (F fh) ≤ c / 2 ^ n := by
+  have hdist : empiricalDist S (chainApprox c_pos h fh n) (F fh) =
+      empiricalDist S (F fh) (chainApprox c_pos h fh n) := by
+    unfold empiricalDist empiricalNorm
+    apply congrArg Real.sqrt
+    rw [one_div_mul_eq_div, one_div_mul_eq_div]
+    congr 1
+    apply Finset.sum_congr rfl
+    intro i hi
+    simp [Pi.sub_apply]
+    ring_nf
+  rw [hdist]
+  exact empiricalDist_to_chainApprox_le_ej c_pos h fh n cs
 
 private lemma signed_sum_le_empiricalDist (f g : Z → ℝ) (σ : Signs m) :
   ∑ i : Fin m, (σ i : ℝ) * (f (S i) - g (S i)) ≤ m * empiricalDist S f g := by
@@ -446,7 +482,7 @@ private lemma signed_sum_le_empiricalDist (f g : Z → ℝ) (σ : Signs m) :
 
 -- Part A
 omit [Nonempty ι] in
-private lemma partA_sup_bound (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+private lemma partA_sup_bound (c_pos : 0 < c) (h : EmpiricalCoverHyp F S)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (n : ℕ) : ∀ (σ : Signs m) (fh : ι),
   ((∑ i : Fin m, (σ i : ℝ) * ((F fh) (S i) - chainApprox c_pos h fh n (S i))) ≤ (m : ℝ) * (ej c n)) := by
   intro σ fh
@@ -457,67 +493,57 @@ private lemma partA_sup_bound (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Se
   -- Part B (uses Massart's finite-class bound)
   -- We compare increments via the paired class:
   -- {(p_j(f), p_{j-1}(f)) | f ∈ F}.
-private noncomputable def incrementSet (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)
+private noncomputable def incrementSet (c_pos : 0 < c) (h : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)
   := {chainApprox c_pos h fh (j + 1) - chainApprox c_pos h fh j | fh : ι}
 
-private noncomputable def incrementPairSet (c_pos : 0 < c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)
+private noncomputable def incrementPairSet (c_pos : 0 < c) (h : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)
   := {(chainApprox c_pos h fh (j + 1), chainApprox c_pos h fh j) | fh : ι}
 
-private lemma finite_chainApprox_image (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma finite_chainApprox_image (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   {chainApprox c_pos h' fh j | fh : ι}.Finite := by
   dsimp [chainApprox]
   by_cases h : (j : ℕ) = 0
   · rw [h]
     simp
   · simp [h]
-    dsimp [coverApprox]
-    have finite_F_image : {F f.index | f ∈ cj c_pos h' (j : ℕ)}.Finite := by
-      have : (SetLike.coe (cj c_pos h' (j : ℕ))).Finite := Finset.finite_toSet _
-      exact this.image (fun f => F f.index)
-    apply finite_F_image.subset
+    refine (Finset.finite_toSet (cj c_pos h' (j : ℕ))).subset ?_
     intro p hp
-    simp at hp
-    obtain ⟨r, hpr⟩ := hp
-    simp
-    use choose (exists_cover_approximation c_pos h' r (j : ℕ))
-    constructor
-    · rcases Classical.choose_spec (exists_cover_approximation c_pos h' r (j : ℕ)) with ⟨hmem, hle⟩
-      exact hmem
-    · exact hpr
+    rcases hp with ⟨r, rfl⟩
+    exact coverApprox_mem_cover c_pos h' r (j : ℕ)
 
-private noncomputable def nextApproxSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :=
+private noncomputable def nextApproxSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :=
   {chainApprox c_pos h' fh (j + 1) | fh : ι}
 
-private noncomputable def currApproxSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :=
+private noncomputable def currApproxSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :=
   {chainApprox c_pos h' fh j | fh : ι}
 
-private noncomputable def approxPairSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :=
+private noncomputable def approxPairSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :=
   (nextApproxSet c_pos h' n j) ×ˢ (currApproxSet c_pos h' n j)
 
-private lemma finite_nextApproxSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma finite_nextApproxSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (nextApproxSet c_pos h' n j).Finite := finite_chainApprox_image c_pos h' (n+1) ⟨j + 1, by simp⟩
 
-private lemma finite_currApproxSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma finite_currApproxSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (currApproxSet c_pos h' n j).Finite := finite_chainApprox_image c_pos h' n j
 
-private lemma finite_approxPairSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma finite_approxPairSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   ((nextApproxSet c_pos h' n j) ×ˢ (currApproxSet c_pos h' n j)).Finite := (finite_nextApproxSet c_pos h' n j).prod (finite_currApproxSet c_pos h' n j)
 
 omit [Nonempty ι] in
-private lemma incrementPairSet_subset_approxPairSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma incrementPairSet_subset_approxPairSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
     (incrementPairSet c_pos h' n j) ⊆ (approxPairSet c_pos h' n j) := by
   intro f hf
   obtain ⟨f0, hg⟩ := hf
   rw [<- hg]
   refine Set.mk_mem_prod (by use f0) (by use f0)
 
-private lemma finite_incrementPairSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma finite_incrementPairSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (incrementPairSet c_pos h' n j).Finite := by
   unfold incrementPairSet
   refine (finite_approxPairSet c_pos h' n j).subset ?_
   apply incrementPairSet_subset_approxPairSet
 
-private lemma finite_incrementSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma finite_incrementSet (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (incrementSet c_pos h' n j).Finite := by
   unfold incrementSet
   let f : (Z → ℝ) × (Z → ℝ) → (Z → ℝ) := fun p => p.1 - p.2
@@ -532,34 +558,34 @@ private lemma finite_incrementSet (c_pos : 0 < c) (h' : TotallyBounded (Set.univ
   rw [this]
   exact (finite_incrementPairSet c_pos h' n j).image f
 
-private noncomputable def nextApproxFinset (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)
+private noncomputable def nextApproxFinset (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)
   := Set.Finite.toFinset (finite_nextApproxSet c_pos h' n j)
 
-private noncomputable def currApproxFinset (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)
+private noncomputable def currApproxFinset (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)
   := Set.Finite.toFinset (finite_currApproxSet c_pos h' n j)
 
-private noncomputable def incrementFinset (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)
+private noncomputable def incrementFinset (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)
   := Set.Finite.toFinset (finite_incrementSet c_pos h' n j)
 
-private noncomputable def incrementPairFinset (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)
+private noncomputable def incrementPairFinset (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)
   := Set.Finite.toFinset (finite_incrementPairSet c_pos h' n j)
 
-private noncomputable def approxPairFinset (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)
+private noncomputable def approxPairFinset (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)
   := Set.Finite.toFinset (finite_approxPairSet c_pos h' n j)
 
-private lemma incrementFinset_nonempty (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma incrementFinset_nonempty (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (incrementFinset c_pos h' n j).Nonempty := by
   dsimp [incrementFinset]
   simp only [Set.Finite.toFinset_nonempty]
   exact ⟨_, ⟨Classical.arbitrary ι, rfl⟩⟩
 
-private lemma incrementPairFinset_nonempty (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma incrementPairFinset_nonempty (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (incrementPairFinset c_pos h' n j).Nonempty := by
   dsimp [incrementPairFinset]
   simp only [Set.Finite.toFinset_nonempty]
   exact ⟨_, ⟨Classical.arbitrary ι, rfl⟩⟩
 
-private lemma incrementFinset_card_le_incrementPairFinset_card (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma incrementFinset_card_le_incrementPairFinset_card (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (incrementFinset c_pos h' n j).card ≤ (incrementPairFinset c_pos h' n j).card := by
   unfold incrementFinset incrementPairFinset
   let f : (Z → ℝ) × (Z → ℝ) → (Z → ℝ) := fun p => p.1 - p.2
@@ -572,14 +598,14 @@ private lemma incrementFinset_card_le_incrementPairFinset_card (c_pos : 0 < c) (
   refine ⟨_, _, ?_, rfl⟩
   exact ⟨fh, rfl⟩
 
-private lemma incrementPairFinset_card_le_approxPairFinset_card (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma incrementPairFinset_card_le_approxPairFinset_card (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
     (incrementPairFinset c_pos h' n j).card ≤ (approxPairFinset c_pos h' n j).card := by
   unfold incrementPairFinset approxPairFinset
   refine Finset.card_le_card ?_
   refine Set.Finite.toFinset_subset_toFinset.mpr ?_
   apply incrementPairSet_subset_approxPairSet
 
-private lemma approxPairFinset_card_eq_product (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma approxPairFinset_card_eq_product (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (approxPairFinset c_pos h' n j).card = (nextApproxFinset c_pos h' n j).card * (currApproxFinset c_pos h' n j).card := by
   rw [<- Finset.card_product]
   refine Finset.card_eq_of_equiv ?_
@@ -588,66 +614,39 @@ private lemma approxPairFinset_card_eq_product (c_pos : 0 < c) (h' : TotallyBoun
   simp
   exact Equiv.refl _
 
-private lemma nextApproxFinset_card_le_cover_card (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) :
+private lemma nextApproxFinset_card_le_cover_card (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) :
   (nextApproxFinset c_pos h' n j).card ≤ (cj c_pos h' ((j : ℕ) + 1)).card := by
-  -- expand `nextApproxFinset`: it is the finset of functions of the form `chainApprox c_pos h' fh (j+1)`
-  -- coming from the cover at scale `j+1`.
   dsimp [nextApproxFinset]
   classical
-  -- image of the cover under coercion to functions
-  -- coerce elements of the cover to functions before taking the image
-  let T : Finset (Z → ℝ) := (cj c_pos h' ((j : ℕ) + 1)).image (fun q : EmpiricalFunctionSpace F S => (q : Z → ℝ))
-  -- every element of `nextApproxFinset` comes from this image via `coverApprox_mem_cover`
-  have hsubset : Set.Finite.toFinset (finite_nextApproxSet c_pos h' n j) ⊆ T := by
+  have hsubset : Set.Finite.toFinset (finite_nextApproxSet c_pos h' n j) ⊆ cj c_pos h' ((j : ℕ) + 1) := by
     intro x hx
     have hxA : x ∈ nextApproxSet c_pos h' n j := by
       simpa [nextApproxFinset] using hx
     rcases hxA with ⟨fh, rfl⟩
-    -- rewrite chainApprox at successor
     have hG : chainApprox c_pos h' fh ((j : ℕ) + 1) = (coverApprox c_pos h' fh ((j : ℕ) + 1) : Z → ℝ) := by
       simp [chainApprox_succ]
-    -- show the corresponding `coverApprox` lies in the cover
     have hmem : coverApprox c_pos h' fh ((j : ℕ) + 1) ∈ cj c_pos h' ((j : ℕ) + 1) := by
       apply coverApprox_mem_cover
-    -- build membership in the image finset
-    -- membership in the image finset
-    have hQmem : (coverApprox c_pos h' fh ((j : ℕ) + 1) : Z → ℝ) ∈ T := by
-      -- unfold `T` and register the element explicitly
-      dsimp [T]
-      refine Finset.mem_image.mpr ?_
-      refine ⟨coverApprox c_pos h' fh ((j : ℕ) + 1), hmem, rfl⟩
-    simpa [hG] using hQmem
-  have hcard_le_T : (Set.Finite.toFinset (finite_nextApproxSet c_pos h' n j)).card ≤ T.card := by
-    exact Finset.card_le_card hsubset
-  have hT_le : T.card ≤ (cj c_pos h' ((j : ℕ) + 1)).card := Finset.card_image_le
-  exact hcard_le_T.trans hT_le
+    simpa [hG] using hmem
+  exact Finset.card_le_card hsubset
 
-private lemma currApproxFinset_card_le_cover_card (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n)  (n_pos : 0 < n) :
+private lemma currApproxFinset_card_le_cover_card (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n)  (n_pos : 0 < n) :
   (currApproxFinset c_pos h' n j).card ≤ (cj c_pos h' (j : ℕ)).card := by
-  -- expand `currApproxFinset`: functions of the form `chainApprox … fh j` live in the cover at scale `j`
   dsimp [currApproxFinset]
   classical
-  -- image of the cover under coercion to functions
-  let T : Finset (Z → ℝ) := (cj c_pos h' ((j : ℕ))).image (fun q : EmpiricalFunctionSpace F S => (q : Z → ℝ))
-  -- every element of `currApproxFinset` comes from this image via `coverApprox_mem_cover`, with a small case split on `(j : ℕ) = 0`
   by_cases hzero : ((j : ℕ)) = 0
-  · -- when j = 0, chainApprox = 0 so currApproxFinset has card 1 ≤ card of the cover (nonempty via coverApprox_mem_cover)
+  ·
     rw [hzero]
-    -- currApproxFinset card is 1
     have hKB : (currApproxFinset c_pos h' n ⟨0, by
-      -- j.isLt : ((j : ℕ)) < n; with hzero we get 0 < n
       have := j.isLt
       simpa [hzero] using this⟩).card = 1 := by
-      -- currApproxSet is {0}, so its toFinset has one element
       simp [currApproxFinset, currApproxSet, chainApprox]
-    -- cover at scale 0 is nonempty: use any fh
     classical
     obtain ⟨fh0⟩ := (inferInstance : Nonempty ι)
     have hcov : (cj c_pos h' 0).Nonempty := by
       exact ⟨coverApprox c_pos h' fh0 0, coverApprox_mem_cover c_pos h' fh0 0⟩
     have hcover_card : 1 ≤ (cj c_pos h' 0).card := by
       simpa [Nat.succ_le_iff, Finset.card_pos] using hcov
-    -- rewrite j to ⟨0, _⟩ to align indices and conclude
     have hj : j = ⟨0, by
       have := j.isLt
       simpa [hzero] using this⟩ := by
@@ -656,16 +655,13 @@ private lemma currApproxFinset_card_le_cover_card (c_pos : 0 < c) (h' : TotallyB
         cases hzero
         rfl
     rw [hj]
-    -- relate the left card to 1 using hKB, then compare with the cover card
     have hBcard : (Set.Finite.toFinset (finite_currApproxSet c_pos h' n ⟨0, n_pos⟩)).card = 1 := by
-      -- currApproxFinset is exactly this toFinset
       simpa [currApproxFinset] using hKB
     have : (Set.Finite.toFinset (finite_currApproxSet c_pos h' n ⟨0, n_pos⟩)).card ≤ (cj c_pos h' 0).card := by
-      -- rewrite the left card to 1 and use the cover-card lower bound
       simpa [hBcard] using hcover_card
     exact this
-  · -- j ≠ 0: use chainApprox_succ and coverApprox_mem_cover to build the subset/image argument
-    have hsubset : Set.Finite.toFinset (finite_currApproxSet c_pos h' n j) ⊆ T := by
+  · refine Finset.card_le_card ?_
+    have hsubset : Set.Finite.toFinset (finite_currApproxSet c_pos h' n j) ⊆ cj c_pos h' ((j : ℕ)) := by
       intro x hx
       have hxB : x ∈ currApproxSet c_pos h' n j := by simpa [currApproxFinset] using hx
       rcases hxB with ⟨fh, rfl⟩
@@ -675,17 +671,10 @@ private lemma currApproxFinset_card_le_cover_card (c_pos : 0 < c) (h' : TotallyB
         rw [hk]
         simp [chainApprox_succ]
       have hmem : coverApprox c_pos h' fh ((j : ℕ)) ∈ cj c_pos h' ((j : ℕ)) := coverApprox_mem_cover c_pos h' fh ((j : ℕ))
-      have hQmem : (coverApprox c_pos h' fh ((j : ℕ)) : Z → ℝ) ∈ T := by
-        dsimp [T]
-        refine Finset.mem_image.mpr ?_
-        exact ⟨coverApprox c_pos h' fh ((j : ℕ)), hmem, rfl⟩
-      simpa [hG] using hQmem
-    have hcard_le_T : (Set.Finite.toFinset (finite_currApproxSet c_pos h' n j)).card ≤ T.card := by
-      exact Finset.card_le_card hsubset
-    have hT_le : T.card ≤ (cj c_pos h' ((j : ℕ))).card := Finset.card_image_le
-    exact hcard_le_T.trans hT_le
+      simpa [hG] using hmem
+    exact hsubset
 
-private lemma incrementPairFinset_card_le_cover_product_card (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) (n_pos : 0 < n):
+private lemma incrementPairFinset_card_le_cover_product_card (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) (n_pos : 0 < n):
   (incrementPairFinset c_pos h' n j).card ≤ (cj c_pos h' (j+1)).card * (cj c_pos h' j).card := by
   calc
   _ ≤ (approxPairFinset c_pos h' n j).card := by
@@ -701,7 +690,7 @@ private lemma incrementPairFinset_card_le_cover_product_card (c_pos : 0 < c) (h'
     simp
 
 omit [Nonempty ι] in
-private lemma chainApprox_increment_signed_sum_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (j : ℕ)
+private lemma chainApprox_increment_signed_sum_bound (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (j : ℕ)
   (σ : Signs m) (fh : ι) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) :
   ∑ i : Fin m, (σ i : ℝ) * (chainApprox c_pos h' fh (j + 1) - chainApprox c_pos h' fh j) (S i) ≤ m * (c / 2 ^ (j+1) + c / 2 ^ j) := by
   calc
@@ -711,14 +700,13 @@ private lemma chainApprox_increment_signed_sum_bound (c_pos : 0 < c) (h' : Total
     apply mul_le_mul_of_nonneg_left _ (by simp)
     calc
     _ ≤ empiricalDist S (chainApprox c_pos h' fh (j + 1)) (F fh) + empiricalDist S (F fh) (chainApprox c_pos h' fh j) := by
-      apply @dist_triangle _ (empiricalPMet S) (chainApprox c_pos h' fh (j + 1)) (F fh) (chainApprox c_pos h' fh j)
+      exact empiricalDist_triangle S (chainApprox c_pos h' fh (j + 1)) (F fh) (chainApprox c_pos h' fh j)
     _ ≤ _ := by
-      rw [←empiricalDist_comm S (F fh) (chainApprox c_pos h' fh (j+1))]
       apply add_le_add
-      · exact empiricalDist_to_chainApprox_le_ej c_pos h' fh (j+1) cs
+      · exact chainApprox_to_empiricalDist_le_ej c_pos h' fh (j+1) cs
       · exact empiricalDist_to_chainApprox_le_ej c_pos h' fh j cs
 
-private lemma massart_bound_for_increment_term (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (j : Fin n) (m_pos : 0 < m)
+private lemma massart_bound_for_increment_term (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (j : Fin n) (m_pos : 0 < m)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) :
   ((m : ℝ)⁻¹ * signs_card_inv m * ∑ σ : Signs m, ⨆ fh : ι,
     (∑ i : Fin m, (σ i : ℝ) * ((chainApprox c_pos h' fh (j+1) - chainApprox c_pos h' fh j) (S i))))
@@ -822,15 +810,16 @@ private lemma massart_bound_for_increment_term (c_pos : 0 < c) (h' : TotallyBoun
       rw [mul_div_right_comm]
       rw [Mathlib.Tactic.LinearCombination.mul_eq_const]
       field_simp
-      rw [Finset.mul₀_sup']
+      have hm_nonneg : 0 ≤ (m : ℝ) := by
+        exact_mod_cast Nat.zero_le m
+      rw [Finset.mul₀_sup' (ha := hm_nonneg)]
       apply congrArg
       ext i
       rw [<- Finset.sum_div]
       simp only [sq_abs, Nat.cast_nonneg, pow_succ_nonneg, Real.sqrt_div', Real.sqrt_sq]
       field_simp
-      norm_cast
 
-theorem partB.mem_incrementPairFinset_repr (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
+theorem partB.mem_incrementPairFinset_repr (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ)
   (j : Fin n) (hk : (Z → ℝ) × (Z → ℝ))
   (hk0 : hk ∈ incrementPairFinset c_pos h' n j) : ∃ fh, (chainApprox c_pos h' fh ((j : ℕ) + 1), chainApprox c_pos h' fh (j : ℕ)) = hk := by
   dsimp [incrementPairFinset] at hk0
@@ -838,11 +827,11 @@ theorem partB.mem_incrementPairFinset_repr (c_pos : 0 < c) (h' : TotallyBounded 
   dsimp [incrementPairSet] at hk0
   exact hk0
 
-private lemma partB_sum_bound_via_massart (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (m_pos : 0 < m)
+private lemma partB_sum_bound_via_massart (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (m_pos : 0 < m)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (n_pos : 0 < n):
   ∑ j : Fin n, ((m : ℝ)⁻¹ * signs_card_inv m * ∑ σ : Signs m, ⨆ fh : ι,
     (∑ i : Fin m, (σ i : ℝ) * ((chainApprox c_pos h' fh (j+1) - chainApprox c_pos h' fh j) (S i)))) ≤
-  ∑ j : Fin n, (Finset.sup' (incrementPairFinset c_pos h' n j) (incrementPairFinset_nonempty c_pos h' n j) fun hk ↦ √(∑ i : Fin m, ((hk.1 - hk.2) (S i)) ^ 2)) * (√(2 * Real.log (coveringNumber h' (ej c (j+1)) * coveringNumber h' (ej c j)))) / ↑m := by
+  ∑ j : Fin n, (Finset.sup' (incrementPairFinset c_pos h' n j) (incrementPairFinset_nonempty c_pos h' n j) fun hk ↦ √(∑ i : Fin m, ((hk.1 - hk.2) (S i)) ^ 2)) * (√(2 * Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1)) * coveringNumber (empiricalDist S) h' (ej c j)))) / ↑m := by
   -- It suffices to prove the bound term-by-term in the finite sum over j.
   apply Finset.sum_le_sum
   intro j hj
@@ -887,26 +876,27 @@ private lemma partB_sum_bound_via_massart (c_pos : 0 < c) (h' : TotallyBounded (
         apply Real.sqrt_nonneg
     · simp
 
-private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (m_pos : 0 < m)
+private lemma partB_bound (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (m_pos : 0 < m)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) :
   ∑ j : Fin n, ((m : ℝ)⁻¹ * signs_card_inv m * ∑ σ : Signs m, ⨆ fh : ι,
     (∑ i : Fin m, (σ i : ℝ) * ((chainApprox c_pos h' fh (j+1) - chainApprox c_pos h' fh j) (S i)))) ≤
-    ∑ j : Fin n, 6 * (ej c (j+1) - ej c (j+2)) * (√(4 * Real.log (coveringNumber h' (ej c (j+1))))/((Real.sqrt m))) := by
+    ∑ j : Fin n, 6 * (ej c (j+1) - ej c (j+2)) * (√(4 * Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1))))/((Real.sqrt m))) := by
   calc
-  _ ≤ ∑ j : Fin n, (Finset.sup' (incrementPairFinset c_pos h' n j) (incrementPairFinset_nonempty c_pos h' n j) fun hk ↦ √(∑ i : Fin m, ((hk.1 - hk.2) (S i)) ^ 2)) * (√(2 * Real.log (coveringNumber h' (ej c (j+1)) * coveringNumber h' (ej c j)))) / ↑m := by
+  _ ≤ ∑ j : Fin n, (Finset.sup' (incrementPairFinset c_pos h' n j) (incrementPairFinset_nonempty c_pos h' n j) fun hk ↦ √(∑ i : Fin m, ((hk.1 - hk.2) (S i)) ^ 2)) * (√(2 * Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1)) * coveringNumber (empiricalDist S) h' (ej c j)))) / ↑m := by
     by_cases n_pos : 0 < n
     · exact partB_sum_bound_via_massart c_pos h' n m_pos cs n_pos
     · simp at n_pos
       rw [n_pos]
       simp
-  _ = ∑ j : Fin n, (Finset.sup' (incrementPairFinset c_pos h' n j) (incrementPairFinset_nonempty c_pos h' n j) fun hk ↦ (√(∑ i : Fin m, ((hk.1 - hk.2) (S i)) ^ 2)) / ↑m) * (√(2 * Real.log (coveringNumber h' (ej c (j+1)) * coveringNumber h' (ej c j)))) := by
+  _ = ∑ j : Fin n, (Finset.sup' (incrementPairFinset c_pos h' n j) (incrementPairFinset_nonempty c_pos h' n j) fun hk ↦ (√(∑ i : Fin m, ((hk.1 - hk.2) (S i)) ^ 2)) / ↑m) * (√(2 * Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1)) * coveringNumber (empiricalDist S) h' (ej c j)))) := by
     apply congrArg
     ext j
     rw [<- div_mul_eq_mul_div]
     rw [Mathlib.Tactic.LinearCombination.mul_eq_const]
-    rw [Finset.sup'_div₀]
-    norm_cast
-  _ ≤ ∑ j : Fin n, ((6 * (ej c (j+1) - ej c (j+2))/ Real.sqrt m) * (√(2 * Real.log ((coveringNumber h' (ej c (j+1))) * (coveringNumber h' (ej c j)))))) := by
+    have hm_nonneg : 0 ≤ (m : ℝ) := by
+      exact_mod_cast Nat.zero_le m
+    rw [Finset.sup'_div₀ (ha := hm_nonneg)]
+  _ ≤ ∑ j : Fin n, ((6 * (ej c (j+1) - ej c (j+2))/ Real.sqrt m) * (√(2 * Real.log ((coveringNumber (empiricalDist S) h' (ej c (j+1))) * (coveringNumber (empiricalDist S) h' (ej c j)))))) := by
     refine Finset.sum_le_sum ?_
     intro j hj
     apply mul_le_mul_of_nonneg_right
@@ -1010,8 +1000,7 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
           simp
         have gh : hk.1 = chainApprox c_pos h' x ((j : ℕ) + 1) := by rw [<- fhx]
         rw [gh]
-        have : √(∑ i, (chainApprox c_pos h' x ((j : ℕ) + 1) - F x) (S i) ^ 2 / ↑m) = empiricalDist S (F x) (chainApprox c_pos h' x ((j : ℕ) + 1)) := by
-          rw [empiricalDist_comm]
+        have : √(∑ i, (chainApprox c_pos h' x ((j : ℕ) + 1) - F x) (S i) ^ 2 / ↑m) = empiricalDist S (chainApprox c_pos h' x ((j : ℕ) + 1)) (F x) := by
           dsimp [empiricalDist, empiricalNorm]
           apply congrArg
           simp [div_eq_mul_inv, mul_comm]
@@ -1021,7 +1010,7 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
                 (↑m)⁻¹)
         rw [this]
         dsimp only [ej]
-        exact empiricalDist_to_chainApprox_le_ej c_pos h' x ((j : ℕ) + 1) cs
+        exact chainApprox_to_empiricalDist_le_ej c_pos h' x ((j : ℕ) + 1) cs
       have r1 : √(∑ i, ((hk.2 - (F x)) (S i)) ^ 2) / ↑m ≤ ej c j / Real.sqrt m := by
         suffices √(∑ i, ((hk.2 - (F x)) (S i)) ^ 2 / ↑m) ≤ ej c j from by
           rw [<- Finset.sum_div] at this
@@ -1037,8 +1026,7 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
 
         have gh : hk.2 = chainApprox c_pos h' x j := by rw [<- fhx]
         rw [gh]
-        have : √(∑ i, (chainApprox c_pos h' x j - F x) (S i) ^ 2 / ↑m) = empiricalDist S (F x) (chainApprox c_pos h' x j) := by
-          rw [empiricalDist_comm]
+        have : √(∑ i, (chainApprox c_pos h' x j - F x) (S i) ^ 2 / ↑m) = empiricalDist S (chainApprox c_pos h' x j) (F x) := by
           dsimp [empiricalDist, empiricalNorm]
           apply congrArg
           simp [div_eq_mul_inv, mul_comm]
@@ -1048,33 +1036,29 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
                 (↑m)⁻¹)
         rw [this]
         dsimp only [ej]
-        exact empiricalDist_to_chainApprox_le_ej c_pos h' x j cs
+        exact chainApprox_to_empiricalDist_le_ej c_pos h' x j cs
       rw [rp]
       apply add_le_add r0 r1
     · exact
       Real.sqrt_nonneg
-        (2 * Real.log (↑(coveringNumber h' (ej c ((j : ℕ) + 1))) * ↑(coveringNumber h' (ej c (j : ℕ)))))
-  _ = ∑ j : Fin n, ((6 * (ej c (j+1) - ej c (j+2))) * (√(2 * Real.log ((coveringNumber h' (ej c (j+1))) * (coveringNumber h' (ej c j)))))/(Real.sqrt m)) := by
+        (2 * Real.log (↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))) * ↑(coveringNumber (empiricalDist S) h' (ej c (j : ℕ)))))
+  _ = ∑ j : Fin n, ((6 * (ej c (j+1) - ej c (j+2))) * (√(2 * Real.log ((coveringNumber (empiricalDist S) h' (ej c (j+1))) * (coveringNumber (empiricalDist S) h' (ej c j)))))/(Real.sqrt m)) := by
     apply congrArg
     ext j
     field_simp
-  _ ≤ ∑ j : Fin n, ((6 * (ej c (j+1) - ej c (j+2))) * (√(2 * Real.log ((coveringNumber h' (ej c (j+1))) * (coveringNumber h' (ej c (j+1))))))/(Real.sqrt m)):= by
+  _ ≤ ∑ j : Fin n, ((6 * (ej c (j+1) - ej c (j+2))) * (√(2 * Real.log ((coveringNumber (empiricalDist S) h' (ej c (j+1))) * (coveringNumber (empiricalDist S) h' (ej c (j+1))))))/(Real.sqrt m)):= by
     refine Finset.sum_le_sum ?_
     intro s si
     refine div_le_div_of_nonneg_right ?_ ?_
     · refine mul_le_mul_of_nonneg_left ?_ ?_
-      · have NonemptyFS : Nonempty (EmpiricalFunctionSpace F S) := by
-          rename_i h
-          obtain ⟨i⟩ := h
-          use i
-        apply Real.sqrt_le_sqrt
+      · apply Real.sqrt_le_sqrt
         refine (mul_le_mul_iff_of_pos_left (by simp)).mpr ?_
         apply Real.log_le_log
         refine Left.mul_pos ?_ ?_
-        repeat (norm_cast; apply coveringNumber_nonzero; simp; apply ej_pos c_pos)
-        refine (mul_le_mul_iff_of_pos_left (by norm_cast; apply coveringNumber_nonzero; simp; apply ej_pos c_pos)).mpr ?_
+        repeat (norm_cast; apply coveringNumber_nonzero (empiricalDist S); exact range_nonempty; apply ej_pos c_pos)
+        refine (mul_le_mul_iff_of_pos_left (by norm_cast; apply coveringNumber_nonzero (empiricalDist S); exact range_nonempty; apply ej_pos c_pos)).mpr ?_
         · norm_cast
-          apply converingNumber_antitone
+          apply converingNumber_antitone (empiricalDist S)
           repeat(apply ej_pos c_pos)
           dsimp [ej]
           refine (div_le_div_iff_of_pos_left c_pos ?_ ?_).mpr ?_
@@ -1089,23 +1073,23 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
         refine (pow_le_pow_iff_right₀ ?_).mpr ?_
         repeat simp
     simp
-  _ = ∑ j : Fin n, 6 * (ej c ((j : ℕ) + 1) - ej c ((j : ℕ) + 2)) * (√(4 * Real.log ↑(coveringNumber h' (ej c ((j : ℕ) + 1)))) / (Real.sqrt m)) := by
+  _ = ∑ j : Fin n, 6 * (ej c ((j : ℕ) + 1) - ej c ((j : ℕ) + 2)) * (√(4 * Real.log ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))) / (Real.sqrt m)) := by
     repeat apply congrArg
     ext j
     -- Factor out the covering number calculation
-    have covering_calc : √(Real.log ((coveringNumber h' (ej c ((j : ℕ) + 1))) * (coveringNumber h' (ej c ((j : ℕ) + 1))))) =
-        √(2 * Real.log (coveringNumber h' (ej c ((j : ℕ) + 1)))) := by
+    have covering_calc : √(Real.log ((coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))) * (coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))))) =
+        √(2 * Real.log (coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))) := by
       calc
-      _ = √(Real.log ((coveringNumber h' (ej c ((j : ℕ) + 1))) ^ 2)) := by
+      _ = √(Real.log ((coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))) ^ 2)) := by
         repeat apply congrArg
         symm
         norm_cast
-        exact pow_two ↑(coveringNumber h' (ej c (j + 1)))
-      _ = √(2 * Real.log (coveringNumber h' (ej c ((j : ℕ) + 1)))) := by
+        exact pow_two ↑(coveringNumber (empiricalDist S) h' (ej c (j + 1)))
+      _ = √(2 * Real.log (coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))) := by
         rw [Real.log_pow]
         norm_cast
       _ = _ := by simp
-    have : √(4 * Real.log ↑(coveringNumber h' (ej c ((j : ℕ) + 1)))) = √2 * √(2 * Real.log ↑(coveringNumber h' (ej c ((j : ℕ) + 1)))) := by
+    have : √(4 * Real.log ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))) = √2 * √(2 * Real.log ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))) := by
       simp
       rw [<- mul_assoc]
       simp
@@ -1115,14 +1099,14 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
     rw [this, <- covering_calc]
     rw [mul_div_assoc]
     apply congrArg
-    have : √(2 * Real.log (↑(coveringNumber h' (ej c ((j : ℕ) + 1))) * ↑(coveringNumber h' (ej c ((j : ℕ) + 1))))) =
-      √2 * √(Real.log (↑(coveringNumber h' (ej c ((j : ℕ) + 1))) * ↑(coveringNumber h' (ej c ((j : ℕ) + 1))))) := by
+    have : √(2 * Real.log (↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))) * ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))))) =
+      √2 * √(Real.log (↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))) * ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1))))) := by
       simp
     rw [this]
   -- Convert the Part A/Part B bound into the final finite-sum expression.
-private lemma combine_partA_partB (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (m_pos : 0 < m)
+private lemma combine_partA_partB (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (m_pos : 0 < m)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) :
-  empiricalRademacherComplexity_without_abs m F S ≤ (ej c n) + 12 / (Real.sqrt m)*(∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber h' (ej c (j+1)))))) := by
+  empiricalRademacherComplexity_without_abs m F S ≤ (ej c n) + 12 / (Real.sqrt m)*(∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1)))))) := by
   apply le_trans (split_main_and_increment_terms cs h' n)
   refine add_le_add ?_ ?_
   · rw [mul_assoc]
@@ -1178,11 +1162,11 @@ private lemma combine_partA_partB (c_pos : 0 < c) (h' : TotallyBounded (Set.univ
       apply congrArg
       ext j
       calc
-      _ = (ej c ((j : ℕ) + 1) - ej c ((j : ℕ) + 2)) * (6 * (√(4 * Real.log ↑(coveringNumber h' (ej c ((j : ℕ) + 1)))) / (Real.sqrt m))) := by ring
-      _ = ((ej c ((j : ℕ) + 1) - ej c ((j : ℕ) + 2)) * ((12 / (Real.sqrt m)) * √(Real.log ↑(coveringNumber h' (ej c ((j : ℕ) + 1)))))) := by
+      _ = (ej c ((j : ℕ) + 1) - ej c ((j : ℕ) + 2)) * (6 * (√(4 * Real.log ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))) / (Real.sqrt m))) := by ring
+      _ = ((ej c ((j : ℕ) + 1) - ej c ((j : ℕ) + 2)) * ((12 / (Real.sqrt m)) * √(Real.log ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))))) := by
         apply congrArg
         calc
-        _ = 6 * (2 * √(Real.log ↑(coveringNumber h' (ej c ((j : ℕ) + 1)))) / (Real.sqrt m)) := by
+        _ = 6 * (2 * √(Real.log ↑(coveringNumber (empiricalDist S) h' (ej c ((j : ℕ) + 1)))) / (Real.sqrt m)) := by
           apply congrArg
           field_simp
           simp only [Nat.ofNat_nonneg, Real.sqrt_mul, mul_eq_mul_right_iff]
@@ -1345,17 +1329,17 @@ private lemma ej_antitone (c_nonneg : 0 ≤ c) : Antitone (fun n : ℕ ↦ ej c 
   norm_num
   exact c_nonneg
 
-private lemma entropy_sum_to_integral_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (m_pos : 0 < m)
+private lemma entropy_sum_to_integral_bound (c_pos : 0 < c) (h' : EmpiricalCoverHyp F S) (n : ℕ) (m_pos : 0 < m)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) :
-  empiricalRademacherComplexity_without_abs m F S ≤ 2 * (ej c (n+1)) + 12 / (Real.sqrt m)*(∫ (x : ℝ) in (ej c (n+1))..(c/2),√(Real.log (coveringNumber h' x))) := by
+  empiricalRademacherComplexity_without_abs m F S ≤ 2 * (ej c (n+1)) + 12 / (Real.sqrt m)*(∫ (x : ℝ) in (ej c (n+1))..(c/2),√(Real.log (coveringNumber (empiricalDist S) h' x))) := by
   calc
-  _ ≤ (ej c n) + 12 / (Real.sqrt m)*(∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber h' (ej c (j+1)))))) := combine_partA_partB c_pos h' n m_pos cs
-  _ = 2 * (ej c (n+1)) + 12 / (Real.sqrt m)*(∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber h' (ej c (j+1)))))) := by
+  _ ≤ (ej c n) + 12 / (Real.sqrt m)*(∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1)))))) := combine_partA_partB c_pos h' n m_pos cs
+  _ = 2 * (ej c (n+1)) + 12 / (Real.sqrt m)*(∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1)))))) := by
     refine add_right_cancel_iff.mpr ?_
     dsimp [ej]
     grind
   _ ≤ _ := by
-    suffices (∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber h' (ej c (j+1)))))) ≤ (∫ (x : ℝ) in (ej c (n + 1))..(c/2),√(Real.log (coveringNumber h' x))) from by
+    suffices (∑ j : Fin n, ((ej c (j+1) - ej c (j+2))*√(Real.log (coveringNumber (empiricalDist S) h' (ej c (j+1)))))) ≤ (∫ (x : ℝ) in (ej c (n + 1))..(c/2),√(Real.log (coveringNumber (empiricalDist S) h' x))) from by
       refine (add_le_add_iff_left (2 * ej c (n + 1))).mpr ?_
       apply mul_le_mul_of_nonneg_left
       exact this
@@ -1367,7 +1351,7 @@ private lemma entropy_sum_to_integral_bound (c_pos : 0 < c) (h' : TotallyBounded
       dsimp [ej]
       simp
     rw [this]
-    let g := fun x ↦ √(Real.log ↑(coveringNumber h' x))
+    let g := fun x ↦ √(Real.log ↑(coveringNumber (empiricalDist S) h' x))
     suffices ∑ j : Fin n, (f j - f (j + 1)) * g (f j) ≤ ∫ (x : ℝ) in f n..f 0, g x from by
       dsimp [f, g] at this
       have p (j : Fin n) : (j : ℕ) + 1 + 1 = (j : ℕ) + 2 := by ring
@@ -1391,7 +1375,7 @@ private lemma entropy_sum_to_integral_bound (c_pos : 0 < c) (h' : TotallyBounded
       apply Real.log_le_log
       · apply Nat.cast_pos.mpr
         apply coveringNumber_nonzero
-        · exact e_nonempty
+        · exact range_nonempty
         simp at hb
         linarith
       norm_cast
@@ -1505,12 +1489,13 @@ private lemma choose_dyadic_scale_for_epsilon (ε : ℝ) (ε_pos : 0 < ε) (c_ε
     rw [<- h2]
     exact Int.le_ceil (Real.logb 2 (c / ε))
 
-theorem dudley_entropy_integral' {ε : ℝ} (ε_pos : 0 < ε) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+theorem dudley_entropy_integral' {ε : ℝ} (ε_pos : 0 < ε)
+  (h' : EmpiricalCoverHyp F S)
   (m_pos : 0 < m) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c)
   (ε_le_c_div_2 : ε < c/2) :
     empiricalRademacherComplexity_without_abs m F S ≤
     (4 * ε + (12 / (Real.sqrt m)) *
-    (∫ (x : ℝ) in ε..(c/2),√(Real.log (coveringNumber h' x)))) := by
+    (∫ (x : ℝ) in ε..(c/2),√(Real.log (coveringNumber (empiricalDist S) h' x)))) := by
   obtain ⟨n, ⟨nw1, nw2⟩⟩ := choose_dyadic_scale_for_epsilon ε ε_pos ε_le_c_div_2
   have ε_c : ε ≤ c := by linarith
   have c_pos : 0 < c := lt_of_le_of_lt' ε_c ε_pos
@@ -1549,7 +1534,7 @@ theorem dudley_entropy_integral' {ε : ℝ} (ε_pos : 0 < ε) (h' : TotallyBound
         apply Real.log_le_log
         · apply Nat.cast_pos.mpr
           apply coveringNumber_nonzero
-          · exact e_nonempty
+          · exact range_nonempty
           linarith
         · norm_cast
           apply converingNumber_antitone

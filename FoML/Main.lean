@@ -239,12 +239,12 @@ theorem linear_predictor_l1_bound
 /-- Dudley entropy integral upper bound for empirical Rademacher complexity. -/
 theorem dudley_entropy_integral_bound
   {𝒳 : Type v} {n : ℕ} {ι : Type u} [Nonempty ι] {F : ι → 𝒳 → ℝ} {S : Fin n → 𝒳} {c ε : ℝ}
-  (ε_pos : 0 < ε) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+  (ε_pos : 0 < ε) (h' : HasFiniteCovers (empiricalDist S) (Set.range F))
   (m_pos : 0 < n) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c)
   (ε_le_c_div_2 : ε < c/2) :
     empiricalRademacherComplexity_without_abs n F S ≤
     (4 * ε + (12 / Real.sqrt n) *
-    (∫ (x : ℝ) in ε..(c/2),√(Real.log (coveringNumber h' x)))) := by
+    (∫ (x : ℝ) in ε..(c/2),√(Real.log (coveringNumber (empiricalDist S) h' x)))) := by
   exact dudley_entropy_integral' ε_pos h' m_pos cs ε_le_c_div_2
 
 end

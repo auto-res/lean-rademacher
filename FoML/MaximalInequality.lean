@@ -263,7 +263,7 @@ lemma maximal_inequality_finset (n : ℕ) (s : Finset ι) (n_car : s.card = n) (
               f, g]
             apply Continuous.comp'
             · apply Real.continuous_exp
-            · apply continuous_mul_left
+            · apply continuous_const_mul
           · exact l''
         · dsimp [HasFiniteIntegral]
           dsimp [g, f]
@@ -273,12 +273,9 @@ lemma maximal_inequality_finset (n : ℕ) (s : Finset ι) (n_car : s.card = n) (
               apply lintegral_mono
               refine Pi.le_def.mpr ?_
               intro i
-              rw [Finset.le_sup'_iff]
-              obtain ⟨b,bs,w0⟩ := Finset.exists_mem_eq_sup' H fun j ↦ X j i
-              use b
-              constructor
-              exact bs
+              obtain ⟨b, bs, w0⟩ := Finset.exists_mem_eq_sup' H fun j ↦ X j i
               rw [w0]
+              exact Finset.le_sup' (f := fun j ↦ ‖rexp (t * X j i)‖ₑ) bs
             _ ≤ ∫⁻ (a : Ω), ∑ j ∈ s, ‖rexp (t * X j a)‖ₑ ∂μ := by
               apply lintegral_mono
               refine Pi.le_def.mpr ?_
@@ -624,7 +621,7 @@ lemma maximal_inequality_supR'
         refine Measurable.ennreal_ofReal ?_
         refine Continuous.borel_measurable ?_
         refine Continuous.rexp ?_
-        exact continuous_mul_left t
+        exact continuous_const_mul t
       · intro i
         subst n_car
         simp_all only [gt_iff_lt, Finset.sum_apply]
