@@ -118,6 +118,25 @@ noncomputable def signVecPMF (n : ℕ) : PMF (Signs n) :=
 
 variable {ι : Type v} {𝒳 : Type w}
 
+/-- Empirical Rademacher complexity is nonnegative. -/
+lemma empiricalRademacherComplexity_nonneg
+    (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) :
+    0 ≤ empiricalRademacherComplexity n f S := by
+  dsimp [empiricalRademacherComplexity]
+  apply mul_nonneg
+  · positivity
+  · apply Finset.sum_nonneg
+    intro σ _
+    exact Real.iSup_nonneg fun i ↦
+      abs_nonneg ((n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (S k))
+
+/-- Pulling a function class back along a map is the same as mapping the sample. -/
+lemma empiricalRademacherComplexity_comp
+    {𝒴 : Type*} (g : ι → 𝒴 → ℝ) (q : 𝒳 → 𝒴) (S : Fin n → 𝒳) :
+    empiricalRademacherComplexity n (fun i x ↦ g i (q x)) S =
+      empiricalRademacherComplexity n g (q ∘ S) := by
+  rfl
+
 -- Equip with the discrete sigma-algebra
 noncomputable instance : MeasurableSpace (Signs n) := ⊤
 

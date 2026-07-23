@@ -6,6 +6,7 @@ import Mathlib.Algebra.Order.Group.CompleteLattice
 import Mathlib.MeasureTheory.Order.Group.Lattice
 import FoML.Symmetrization
 import FoML.MeasurePiLemmas
+import FoML.RademacherVariableProperty
 
 open MeasureTheory ProbabilityTheory Real
 open scoped ENNReal
@@ -351,6 +352,114 @@ theorem abs_sum_sup_signed_le_pow_mul_bound {X : Ω → Z}
       · simp only [not_nonempty_iff] at h
         simp only [iSup_of_isEmpty]
         exact mul_nonneg (Nat.cast_nonneg n) hb
+
+omit [MeasurableSpace Ω] [IsProbabilityMeasure μ] in
+/-- A uniformly bounded class has empirical Rademacher complexity at most the same bound. -/
+theorem empiricalRademacherComplexity_le_of_bounded
+    {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ (i : ι) (z : Z), |f i z| ≤ b)
+    (S : Fin n → Z) :
+    empiricalRademacherComplexity n f S ≤ b := by
+  by_cases hn : n = 0
+  · subst n
+    simpa [empiricalRademacherComplexity] using hb
+  dsimp [empiricalRademacherComplexity]
+  calc
+    (Fintype.card (Signs n) : ℝ)⁻¹ *
+          ∑ σ : Signs n, ⨆ i, |(n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (S k)|
+        ≤ (Fintype.card (Signs n) : ℝ)⁻¹ * ∑ _σ : Signs n, b := by
+          apply mul_le_mul_of_nonneg_left
+          · apply Finset.sum_le_sum
+            intro σ _
+            apply Real.iSup_le
+            · intro i
+              rw [abs_mul, abs_of_nonneg (inv_nonneg.mpr (Nat.cast_nonneg n))]
+              calc
+                (n : ℝ)⁻¹ * |∑ k : Fin n, (σ k : ℝ) * f i (S k)|
+                    ≤ (n : ℝ)⁻¹ * ∑ k : Fin n, |(σ k : ℝ) * f i (S k)| := by
+                      gcongr
+                      exact Finset.abs_sum_le_sum_abs
+                        (fun k : Fin n ↦ (σ k : ℝ) * f i (S k)) Finset.univ
+                _ = (n : ℝ)⁻¹ * ∑ k : Fin n, |f i (S k)| := by
+                      congr 1
+                      apply Finset.sum_congr rfl
+                      intro k _
+                      rw [abs_mul, abs_sigma, one_mul]
+                _ ≤ (n : ℝ)⁻¹ * ∑ _k : Fin n, b := by
+                      gcongr with k
+                      exact hf' i (S k)
+                _ = b := by
+                      simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+                        nsmul_eq_mul]
+                      field_simp
+            · exact hb
+          · positivity
+    _ = b := by
+      simp [Signs.card]
+
+/-- Measurability of empirical Rademacher complexity evaluated on a random sample. -/
+theorem measurable_empiricalRademacherComplexity_comp
+    [Countable ι] {X : Ω → Z} (hf : ∀ i, Measurable (f i ∘ X)) :
+    Measurable fun ω : Fin n → Ω ↦ empiricalRademacherComplexity n f (X ∘ ω) := by
+  dsimp only [empiricalRademacherComplexity]
+  apply Measurable.const_mul
+  apply Finset.univ.measurable_sum
+  intro σ _
+  apply Measurable.iSup
+  intro i
+  apply Measurable.abs
+  apply Measurable.const_mul
+  apply Finset.univ.measurable_sum
+  intro k _
+  apply measurable_const.mul
+  simpa only [Function.comp_apply] using (hf i).comp (measurable_pi_apply k)
+
+/-- Integrability of empirical Rademacher complexity for a measurable uniformly bounded class. -/
+theorem integrable_empiricalRademacherComplexity_comp
+    [Countable ι] {X : Ω → Z} (hf : ∀ i, Measurable (f i ∘ X))
+    {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ (i : ι) (z : Z), |f i z| ≤ b) :
+    Integrable (fun ω : Fin n → Ω ↦ empiricalRademacherComplexity n f (X ∘ ω)) μⁿ := by
+  rw [← memLp_one_iff_integrable]
+  apply MemLp.of_bound (measurable_empiricalRademacherComplexity_comp hf).aestronglyMeasurable b
+  filter_upwards with ω
+  rw [Real.norm_eq_abs, abs_of_nonneg (empiricalRademacherComplexity_nonneg n f (X ∘ ω))]
+  exact empiricalRademacherComplexity_le_of_bounded hb hf' (X ∘ ω)
+
+/-- An almost-everywhere empirical bound lifts to expected Rademacher complexity. -/
+theorem rademacherComplexity_le_of_ae_empirical_le
+    {X : Ω → Z} {C : ℝ}
+    (hint :
+      Integrable (fun ω : Fin n → Ω ↦ empiricalRademacherComplexity n f (X ∘ ω)) μⁿ)
+    (hC : ∀ᵐ ω : Fin n → Ω ∂μⁿ, empiricalRademacherComplexity n f (X ∘ ω) ≤ C) :
+    rademacherComplexity n f μ X ≤ C := by
+  rw [rademacherComplexity]
+  calc
+    μⁿ[fun ω : Fin n → Ω ↦ empiricalRademacherComplexity n f (X ∘ ω)]
+        ≤ μⁿ[fun _ω : Fin n → Ω ↦ C] :=
+      integral_mono_ae
+        (μ := μⁿ)
+        (f := fun ω : Fin n → Ω ↦ empiricalRademacherComplexity n f (X ∘ ω))
+        (g := fun _ω : Fin n → Ω ↦ C)
+        hint (integrable_const C) hC
+    _ = C := by simp
+
+/-- A bound valid for every fixed sample lifts to expected Rademacher complexity. -/
+theorem rademacherComplexity_le_of_empirical_le
+    {X : Ω → Z} {C : ℝ}
+    (hint :
+      Integrable (fun ω : Fin n → Ω ↦ empiricalRademacherComplexity n f (X ∘ ω)) μⁿ)
+    (hC : ∀ S : Fin n → Z, empiricalRademacherComplexity n f S ≤ C) :
+    rademacherComplexity n f μ X ≤ C :=
+  rademacherComplexity_le_of_ae_empirical_le hint
+    (Filter.Eventually.of_forall fun ω ↦ hC (X ∘ ω))
+
+/-- Countable measurable uniformly bounded classes need no separate integrability hypothesis. -/
+theorem rademacherComplexity_le_of_empirical_le_countable
+    [Countable ι] {X : Ω → Z} (hf : ∀ i, Measurable (f i ∘ X))
+    {b C : ℝ} (hb : 0 ≤ b) (hf' : ∀ (i : ι) (z : Z), |f i z| ≤ b)
+    (hC : ∀ S : Fin n → Z, empiricalRademacherComplexity n f S ≤ C) :
+    rademacherComplexity n f μ X ≤ C :=
+  rademacherComplexity_le_of_empirical_le
+    (integrable_empiricalRademacherComplexity_comp hf hb hf') hC
 
 theorem integrable_signed_sup_sum_fst [Countable ι] {X : Ω → Z} (hf : ∀ (i : ι), Measurable (f i ∘ X))
     {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ (i : ι) (z : Z), |f i z| ≤ b) :

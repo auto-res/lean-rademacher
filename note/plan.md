@@ -486,11 +486,11 @@ uniform_deviation_tail_bound_separable_of_uniform_dudley
 
 ### Phase 1: 共通 bridge
 
-- [ ] 経験 Rademacher 複雑度の非負性、写像補題、可測性、可積分性を追加する。
-- [ ] `rademacherComplexity_le_of_ae_empirical_le` を追加する。
-- [ ] 全標本上界を受け取る wrapper を追加する。
-- [ ] 可算・可分クラスの deterministic-threshold 期待値 corollary を追加する。
-- [ ] 可算・可分クラスの deterministic-threshold tail corollary を追加する。
+- [x] 経験 Rademacher 複雑度の非負性、写像補題、可測性、可積分性を追加する。
+- [x] `rademacherComplexity_le_of_ae_empirical_le` を追加する。
+- [x] 全標本上界を受け取る wrapper を追加する。
+- [x] 可算・可分クラスの deterministic-threshold 期待値 corollary を追加する。
+- [x] 可算・可分クラスの deterministic-threshold tail corollary を追加する。
 
 この phase の完了時点で、任意の固定標本一様評価を汎化定理へ投入できるようになる。
 
