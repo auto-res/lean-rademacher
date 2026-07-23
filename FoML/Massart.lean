@@ -108,13 +108,6 @@ noncomputable def Y (i : Fin m) (j : ι) : Ωᵣ → ℝ :=
 noncomputable def X (j : ι) : Ωᵣ → ℝ :=
   fun σ => ∑ i : Fin m, Y (F:=F) (S:=S) i j σ
 
--- per-sample envelope r i (independent of j), and its ℓ2-aggregate r′
-noncomputable def r (f : Finset ι) (hs : f.Nonempty) (i : Fin m) : ℝ :=
-  (m : ℝ)⁻¹ * Finset.sup' f hs (fun j => |F j (S i)|)
-
-noncomputable def r' (i : Fin m) (j : ι) : ℝ :=
-  (m : ℝ)⁻¹ * |F j (S i)|
-
 end MassartNotation
 
 lemma MassartNotation.xy_identity
@@ -156,14 +149,13 @@ theorem massart_lemma_pmf.sign_mean_zero {Z : Type v} {m : ℕ}
 
 lemma massart_lemma_pmf
     (f : Finset ι) (hs : f.Nonempty) (m_pos : 0 < m)
-    (C : ℝ) (hC : ∀ i ∈ f, ∀ j, |F i (S j)| ≤ C)
-    (hsR : f.Nonempty) :
+    (C : ℝ) (hC : ∀ i ∈ f, ∀ j, |F i (S j)| ≤ C) :
     empiricalRademacherComplexity_pmf_without_abs m (F_on (ι:=ι) (Z:=Z) F f) S
       ≤ (Finset.sup' f hs fun j => Real.sqrt (∑ i : Fin m,
             ((m : ℝ)⁻¹ * |F j (S i)|) ^ 2)) * Real.sqrt (2 * Real.log f.card) := by
     have hbridge :
         empiricalRademacherComplexity_pmf_without_abs m (F_on (ι:=ι) (Z:=Z) F f) S
-          = ∫ σ, Finset.sup' f hsR
+          = ∫ σ, Finset.sup' f hs
                 (fun j => MassartNotation.X (F:=F) (S:=S) (m:=m) (ι:=ι) j σ) ∂(signVecPMF m).toMeasure := by
       dsimp [empiricalRademacherComplexity_pmf_without_abs]
       dsimp [MassartNotation.X]
@@ -246,14 +238,14 @@ lemma massart_lemma_pmf
       (n := f.card)
       (s := (Finset.univ : Finset (Fin m)))
       (s' := f)
-      hsR
+      hs
       rfl
       (X := MassartNotation.X (F:=F) (S:=S) (m:=m) (ι:=ι))
       (Y := MassartNotation.Y (F:=F) (S:=S) (m:=m) (ι:=ι))
       (r := fun i j ↦ (m : ℝ)⁻¹ * |F j (S i)|)
       ?y_pos ?y_neg ?y_ave ?y_mea ?s_ind ?xy
     · simp
-      dsimp [MassartNotation.Y, MassartNotation.r]
+      dsimp [MassartNotation.Y]
       intro a a_1 af ω
       rw [mul_assoc]
       refine mul_le_mul_of_nonneg_left ?_ ?_
@@ -265,7 +257,7 @@ lemma massart_lemma_pmf
         _ = _ := by simp
       · simp
     · simp
-      dsimp [MassartNotation.Y, MassartNotation.r]
+      dsimp [MassartNotation.Y]
       intro a a_1 af ω
       calc
       _ = -|((↑m)⁻¹ * ↑↑(ω a) * F a_1 (S a))| := by

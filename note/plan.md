@@ -853,3 +853,108 @@ linear_predictor_l1_bound
 - 複雑度項と集中項が区別されている。
 - 決定論的版と標本依存版の違いが theorem name と docstring から分かる。
 - $n>0$, $0<\delta\le1$、正の半径など、平方根・対数・除算に必要な仮定が主張に現れる。
+
+## 13. Phase 7: bridge の整理と汎化評価 API の再構成
+
+### 13.1 目的
+
+リポジトリ内で繰り返されている次の変換を、再利用可能な bridge に集約する。
+
+1. しきい値の上界による確率事象の包含。
+2. 中心化 tail 評価と期待値評価から、非中心化 tail 評価を導く変換。
+3. $\varepsilon$ 形式から $0<\delta\le1$ の信頼度形式への変換。
+4. 可分な仮説クラスを可算稠密部分クラスへ制限する変換。
+
+共通の順序・測度・実数計算だけに依存する補題は `FoML/ForMathlib` に置く。
+Rademacher 複雑度、汎化評価、個別モデルに依存する定理はそれぞれ専用
+モジュールに置く。
+
+### 13.2 `ForMathlib` の共通補題
+
+- [x] 実数値関数 $A\le B$ に対する superlevel 事象の単調性を追加する。
+- [x] 中心化 tail 評価と $\mathbb E[Y]\le C$ から
+  $\Pr\{C+\varepsilon\le Y\}$ を評価する補題を追加する。
+- [x] 一般の前係数 $\kappa$ に対する信頼半径
+
+  $$
+  \operatorname{confidenceRadius}(\kappa,b,\delta,n)
+  =
+  b\sqrt{\frac{2\log(\kappa/\delta)}{n}}
+  $$
+
+  と指数関数の評価式を追加する。
+
+### 13.3 可算クラスの汎化評価
+
+- [x] `FoML/Generalization.lean` を作り、可算クラスの期待値評価、
+  McDiarmid 評価、決定論的・標本依存しきい値の bridge を移す。
+- [x] `uniform_deviation_expectation_le_of_rademacher_le` を追加する。
+- [x] `uniform_deviation_tail_bound_countable_of_rademacher_le` を追加する。
+- [x] 既存の経験 Rademacher 複雑度上界版を上記 bridge の系として書き直す。
+- [x] 公開宣言名は原則として維持し、証明中の直接的な
+  `measure_mono` と `linarith` の反復を除く。
+
+### 13.4 可分クラスへの制限
+
+- [x] 次の項を明示的に定義する。
+
+  ```lean
+  abbrev denseRestriction
+      [TopologicalSpace H] [SeparableSpace H] [Nonempty H]
+      (F : H → α) : ℕ → α :=
+    F ∘ denseSeq H
+  ```
+
+- [x] 経験 Rademacher 複雑度、期待 Rademacher 複雑度、一様偏差の
+  `denseRestriction` による不変性を個別の bridge として追加する。
+- [x] 可測性・一様有界性の transfer 補題を追加する。
+- [x] `FoML/SeparableGeneralization.lean` を作り、可分クラスの定理を移す。
+- [x] `RademacherComplexity_eq` などの命名を Mathlib の lowerCamelCase
+  convention に合わせ、旧名には互換用 alias を残す。
+
+### 13.5 信頼度形式と個別モデル
+
+- [x] `FoML/Confidence.lean` を作り、決定論的・標本依存しきい値の
+  $\delta$ 形式を集約する。
+- [x] `FoML/LinearPredictorL2Generalization.lean` を作り、
+  $\ell_2$ 線形予測器の期待評価・高確率評価を移す。
+- [x] `FoML/LinearPredictorL1Generalization.lean` を作り、
+  $\ell_1/\ell_\infty$ 線形予測器の期待評価・高確率評価を移す。
+- [x] `FoML/DudleyGeneralization.lean` を作り、Dudley entropy integral
+  と汎化評価の接続を移す。
+- [x] 繰り返される Dudley の右辺を、標本を引数に取る定義として一度だけ記述する。
+
+### 13.6 `Main.lean`
+
+- [x] `Main.lean` を主要な利用例に限定する。
+- [x] import だけの入口にはせず、線形予測器と Dudley について
+  `example` または薄い corollary を残す。
+- [x] docstring では経験複雑度項・集中項・確率評価の役割を区別し、
+  LaTeX 数式で最終評価を明記する。
+
+### 13.7 今回の対象外
+
+Mathlib の `Metric.coveringNumber` への移行は、値域が `ℕ` と `ℕ∞` で異なり、
+開球・閉球の差もあるため、この phase では実施しない。独立した変更として
+定理の対応関係を調査してから行う。
+
+### 13.8 付随する cleanup
+
+- [x] `MassartNotation.r'`、`CoordIndex`、`coordSignedOn` など、参照されない
+  定義を削除する。
+- [x] Massart の重複する非空性仮定と、最適化 tail 定理の未使用局所仮定を除く。
+- [x] Dudley の証明内部でのみ使う宣言を `private` にし、一般の有限和・積分比較
+  補題は `FoML/ForMathlib` へ移す。
+- [x] 実数に対する二倍の表記を `2 • C` から `2 * C` に統一する。
+- [x] `FoML/WIP/RademacherProperty.lean` を公開ソース木から除き、現行実装との
+  重複を解消する。
+- [x] `.gitattributes` で Lean・Markdown ファイルの LF を指定し、既存の混在改行を
+  機械的に正規化する。
+
+### 13.9 完了条件
+
+- [x] `FoML/Main.lean` を含む `lake build` が成功する。
+- [x] `FoML` に `sorry` または `admit` がない。
+- [x] `import FoML.Main` から既存の公開宣言と新しい bridge を参照できる。
+- [x] `Main.lean` の主要例が数式入り docstring を持つ。
+- [x] `note/summary.md` の依存関係グラフと公開 API 一覧を新構成に同期する。

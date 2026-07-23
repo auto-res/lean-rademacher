@@ -23,7 +23,11 @@ Understanding and certifying the generalization performance of machine learning 
 - push ```Restart File``` button to rebuild the project.
 
 ## Contents (selected)
-Key theorems (resp. definitions) are gathered in `Main.lean` (resp. `Defs.lean`), e.g.
+`Main.lean` imports the public API and gives end-to-end examples.  The
+abstract bounds are implemented in `Generalization.lean`,
+`SeparableGeneralization.lean`, and `Confidence.lean`; model-specific
+corollaries live in the corresponding `*Generalization.lean` files.
+Core definitions remain in `Defs.lean`.  Selected declarations include:
 - `uniform_deviation_tail_bound_separable`
   - (Main Theorem) Generalization error bound using Rademacher complexity
 - `empiricalRademacherComplexity` *et al.*

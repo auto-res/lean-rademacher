@@ -7,6 +7,7 @@ import Mathlib.Algebra.Order.Group.CompleteLattice
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Analysis.SumIntegralComparisons
 import Mathlib.Analysis.SpecialFunctions.Log.Base
+import FoML.ForMathlib.Analysis.SumIntegralComparisons
 
 universe v u
 open scoped BigOperators
@@ -75,26 +76,6 @@ theorem signSymmetrization_totallyBounded
         exact ⟨⟨i⟩, Set.mem_univ _, rfl⟩
     · simp]
   exact hpos.union hneg
-
-theorem term_le_total_sum_of_nonneg (m : ℕ) (j : Fin m) (f : Fin m → ℝ) (h0 : ∀ j, 0 ≤ f j) :
-  f j ≤ ∑ i : Fin m, f i := by
-  classical
-  have hj : j ∈ (Finset.univ : Finset (Fin m)) := by simp
-  have hsum :
-      (Finset.univ.erase j).sum (fun i : Fin m => f i) + f j =
-        ∑ i : Fin m, f i := by
-    simp
-  have h_nonneg :
-      0 ≤ (Finset.univ.erase j).sum (fun i : Fin m => f i) := by
-    refine Finset.sum_nonneg ?_
-    intro i hi
-    exact h0 i
-  have h_le :
-      f j ≤ (Finset.univ.erase j).sum (fun i : Fin m => f i) + f j := by
-    simpa [add_comm] using add_le_add_left h_nonneg (f j)
-  apply le_trans h_le
-  simp
-
 
 variable {c : ℝ}
   -- Dyadic radius sequence, associated cover, and cover cardinality.
@@ -228,7 +209,7 @@ private lemma chainApprox_increment_bound (c_pos : 0 < c) (m_pos : 0 < m) (cs : 
     exact cs
   _ = _ := by ring
 
-theorem splitBound.bddAbove_main_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
+private theorem splitBound.bddAbove_main_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
   (m_pos : ¬m = 0)
   (i : Signs m):
   BddAbove (Set.range fun fh ↦ ∑ i_1, ↑↑(i i_1) * (F fh (S i_1) - chainApprox c_pos h fh n (S i_1))) := by
@@ -267,7 +248,7 @@ theorem splitBound.bddAbove_main_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiri
       simp
       grind
 
-theorem splitBound.bddAbove_increment_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
+private theorem splitBound.bddAbove_increment_term {c_pos : 0 < c} (cs : ∀ (f : ι), empiricalNorm S (F f) ≤ c) (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
   (m_pos : ¬m = 0)
   (i : Signs m) :
   BddAbove
@@ -869,7 +850,6 @@ private lemma massart_bound_for_increment_term (c_pos : 0 < c) (h' : TotallyBoun
           have : Real.sqrt (i (S j) ^ 2) ≤ Real.sqrt (∑ x : Fin m, i (S x) ^ 2) := by
             exact Real.sqrt_le_sqrt hsq
           simpa [Real.sqrt_sq_eq_abs] using this
-      · exact incrementFinset_nonempty c_pos h' n j
     · have : √(2 * Real.log ((Set.Finite.toFinset (finite_incrementSet c_pos h' n j)).card)) = √(2 * Real.log ↑(incrementFinset c_pos h' n j).card) := by
         apply congrArg
         apply congrArg
@@ -887,14 +867,6 @@ private lemma massart_bound_for_increment_term (c_pos : 0 < c) (h' : TotallyBoun
       simp only [sq_abs, Nat.cast_nonneg, pow_succ_nonneg, Real.sqrt_div', Real.sqrt_sq]
       field_simp
       norm_cast
-
-theorem partB.mem_incrementPairFinset_repr (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ)
-  (j : Fin n) (hk : (Z → ℝ) × (Z → ℝ))
-  (hk0 : hk ∈ incrementPairFinset c_pos h' n j) : ∃ fh, (chainApprox c_pos h' fh ((j : ℕ) + 1), chainApprox c_pos h' fh (j : ℕ)) = hk := by
-  dsimp [incrementPairFinset] at hk0
-  simp at hk0
-  dsimp [incrementPairSet] at hk0
-  exact hk0
 
 private lemma partB_sum_bound_via_massart (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (m_pos : 0 < m)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (n_pos : 0 < n):
@@ -1254,147 +1226,6 @@ private lemma combine_partA_partB (c_pos : 0 < c) (h' : TotallyBounded (Set.univ
           simp
         _ = _ := by ring
       _ = _ := by ring
-
-theorem MonotoneOn.leftRiemann_sum_le_integral_antitoneOn (n : ℕ) (f : ℕ → ℝ) (g : ℝ → ℝ)
-    (hf : Monotone f) (hg : AntitoneOn g (Set.Icc (f 0) (f n))) (j : Fin n):
-    (f (j+1) - f j) * g (f (j+1)) ≤ ∫ (x : ℝ) in (f j)..(f (j+1)), g x := by
-  calc
-  _ = ∫ (x : ℝ) in (f j)..(f (j+1)), g (f (j+1)) := by
-    simp
-  _ ≤ _ := by
-    apply intervalIntegral.integral_mono_on
-    · apply hf
-      simp
-    · apply AntitoneOn.intervalIntegrable
-      exact antitoneOn_const
-    · apply AntitoneOn.intervalIntegrable
-      refine antitoneOn_iff_forall_lt.mpr ?_
-      intro a ha b hb hab
-      apply hg
-      · suffices Set.uIcc (f (j : ℕ)) (f ((j : ℕ) + 1)) ⊆ Set.Icc (f 0) (f n) from by
-          grind
-        refine Set.uIcc_subset_Icc ?_ ?_
-        · constructor
-          · apply hf
-            simp
-          · apply hf
-            simp
-        · constructor
-          · apply hf
-            simp
-          · apply hf
-            refine Order.add_one_le_of_lt ?_; simp
-      · suffices Set.uIcc (f (j : ℕ)) (f ((j : ℕ) + 1)) ⊆ Set.Icc (f 0) (f n) from by
-          grind
-        refine Set.uIcc_subset_Icc ?_ ?_
-        · constructor
-          · apply hf
-            simp
-          · apply hf
-            simp
-        · constructor
-          · apply hf
-            simp
-          · apply hf
-            refine Order.add_one_le_of_lt ?_; simp
-      exact le_of_lt hab
-    intro x hx
-    simp at hx
-    apply hg
-    · constructor
-      · have : f 0 ≤ f (j : ℕ) := by apply hf; simp
-        linarith
-      · have : f ((j : ℕ) + 1) ≤ f n := by apply hf; refine Order.add_one_le_of_lt ?_; simp
-        linarith
-    · constructor
-      · apply hf
-        simp
-      · apply hf
-        refine Order.add_one_le_of_lt ?_; simp
-    exact hx.2
-
-theorem AntitoneOn.leftRiemann_sum_le_integral (n : ℕ) (f : ℕ → ℝ) (g : ℝ → ℝ)
-    (hf : Antitone f) (hg : AntitoneOn g (Set.Icc (f n) (f 0))):
-    ∑ j : Fin n, (f j - f (j+1)) * g (f j) ≤ ∫ (x : ℝ) in (f n)..(f 0), g x := by
-  by_cases hnpos : 0 < n
-  · let h (p : ℕ) := f (n-p)
-    have s0 : f n = h 0 := by dsimp [h]
-    have s1 : f 0 = h n := by dsimp [h]; simp
-    have hh' : Monotone h := by
-      dsimp [h]
-      change Monotone (f ∘ (fun p ↦ (n - p)))
-      apply Antitone.comp
-      exact hf
-      exact antitone_const_tsub
-    rw [s0, s1]
-    rw [<- intervalIntegral.sum_integral_adjacent_intervals]
-    have t : ∑ j : Fin n, (f (j : ℕ) - f ((j : ℕ) + 1)) * g (f (j : ℕ)) = ∑ j : Fin n, (h ((j : ℕ) + 1) - h (j : ℕ)) * g (h ((j : ℕ) + 1)) := by
-      let φ : Fin n ≃ Fin n :=
-        { toFun := fun j =>
-            ⟨n - 1 - j, by
-              have hlt : n - 1 < n := Nat.pred_lt (Nat.ne_of_gt hnpos)
-              exact lt_of_le_of_lt (Nat.sub_le _ _) hlt⟩
-          invFun := fun j =>
-            ⟨n - 1 - j, by
-              have hlt : n - 1 < n := Nat.pred_lt (Nat.ne_of_gt hnpos)
-              exact lt_of_le_of_lt (Nat.sub_le _ _) hlt⟩
-          left_inv := by
-            intro j
-            apply Fin.ext
-            have hjle : (j : ℕ) ≤ n - 1 := Nat.le_pred_of_lt j.is_lt
-            have : n - 1 - (n - 1 - j) = j := by grind
-            simp [this]
-          right_inv := by
-            intro j
-            apply Fin.ext
-            have hjle : (j : ℕ) ≤ n - 1 := Nat.le_pred_of_lt j.is_lt
-            have : n - 1 - (n - 1 - j) = j := by grind
-            simp [this] }
-
-      have tsum := (Equiv.sum_comp φ (fun j : Fin n => (f j - f (j + 1)) * g (f j)))
-      -- simp the rewritten sum to expose `h`
-      refine tsum.symm.trans ?_
-      refine Finset.sum_congr rfl ?_
-      intro j _
-      -- unpack φ and h
-      change (f (φ j) - f (φ j + 1)) * g (f (φ j)) = (h (j + 1) - h j) * g (h (j + 1))
-      dsimp [φ, h]
-      -- arithmetic on naturals
-      have hjle : (j : ℕ) ≤ n - 1 := Nat.le_pred_of_lt j.is_lt
-      simp [Nat.sub_sub, Nat.add_comm]
-      left
-      apply congrArg
-      grind
-    rw [t]
-    have u : ∑ k ∈ Finset.range n, ∫ (x : ℝ) in h k..h (k + 1), g x = ∑ k : Fin n, ∫ (x : ℝ) in h k..h (k + 1), g x := by
-      exact Finset.sum_range fun i ↦ ∫ (x : ℝ) in h i..h (i + 1), g x
-    rw [u]
-    apply Finset.sum_le_sum
-    intro i yi
-    apply MonotoneOn.leftRiemann_sum_le_integral_antitoneOn
-    · exact hh'
-    · rw [<-s0]
-      rw [<-s1]
-      exact hg
-    intro k kn
-    apply AntitoneOn.intervalIntegrable
-    rw [s0] at hg
-    rw [s1] at hg
-    apply hg.mono
-    refine Set.uIcc_subset_Icc ?_ ?_
-    constructor
-    · apply hh'
-      simp
-    · apply hh'
-      linarith
-    constructor
-    · apply hh'
-      simp
-    · apply hh'
-      linarith
-  · have n_zero : n = 0 := by linarith
-    rw [n_zero]
-    simp
 
 private lemma ej_antitone (c_nonneg : 0 ≤ c) : Antitone (fun n : ℕ ↦ ej c n) := by
   dsimp [ej]
