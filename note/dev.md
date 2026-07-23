@@ -31,3 +31,11 @@ Dudley を活かすため， empirical Rademacher に対する高確率汎化評
 ただし Main.lean は主要な使い方を示すために置いてあるので，単なる import の羅列ではなく，corollary or example で主要な定理を繰り返してください．代わりに docstring を少し充実させてください．例えば latex の数式も使ってください．
 
 11. について，最後以外はただちに実施してください．Mathlib convention に基づく名前のつけ直しや，docstring の充実も図りたいです．
+
+Main.lean には，UD を Rademacher で押さえる基本定理も掲載してください．いくつかバージョンがありますが，可分・高確率・経験Rademacherの組を例として挙げてください．
+
+- FoML 配下のファイルが多くなってきたので，適当なサブディレクトリに分けてください． Main.lean や Defs.lean などは一番外側でよいです．
+- RKHS の場合
+- empirical risk minimization の場合
+を追加してください
+

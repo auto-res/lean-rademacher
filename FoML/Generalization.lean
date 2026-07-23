@@ -31,6 +31,16 @@ variable {μ : Measure Ω} {f : ι → 𝒳 → ℝ}
 
 local notation "μⁿ" => Measure.pi (fun _ ↦ μ)
 
+private lemma normalized_two_mul_bound_mcdiarmid_scale
+    (hn : 0 < n) {b t : ℝ} (ht : t * b ^ 2 ≤ 1 / 2) :
+    ((n : ℝ) * t / 2) * (n : ℝ) * ((n : ℝ)⁻¹ * 2 * b) ^ 2 ≤ 1 := by
+  calc
+    ((n : ℝ) * t / 2) * (n : ℝ) * ((n : ℝ)⁻¹ * 2 * b) ^ 2 =
+        2 * (t * b ^ 2) := by
+          field_simp
+    _ ≤ 2 * (1 / 2 : ℝ) := by gcongr
+    _ = 1 := by norm_num
+
 /--
 The expected empirical uniform deviation is bounded by twice the expected
 Rademacher complexity:
@@ -98,7 +108,7 @@ theorem uniform_deviation_mcdiarmid_tail
     [IsProbabilityMeasure μ]
     {X : Ω → 𝒳} (hX : Measurable X)
     (hf : ∀ i, Measurable (f i))
-    {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b)
+    {b : ℝ} (hf' : ∀ i x, |f i x| ≤ b)
     {t : ℝ} (ht : t * b ^ 2 ≤ 1 / 2)
     {ε : ℝ} (hε : 0 ≤ ε) :
     (μⁿ {ω : Fin n → Ω |
@@ -108,21 +118,13 @@ theorem uniform_deviation_mcdiarmid_tail
   by_cases hn : n = 0
   · simpa [hn] using measureReal_le_one
   have hn : 0 < n := Nat.pos_of_ne_zero hn
-  let c : Fin n → ℝ := fun _ ↦ (n : ℝ)⁻¹ * 2 * b
-  have ht' : (n : ℝ) * t / 2 * ∑ i, (c i) ^ 2 ≤ 1 := by
-    apply le_of_mul_le_mul_left _ (show (0 : ℝ) < 1 / 2 from by linarith)
-    calc
-      _ = t * b ^ 2 := by
-        simp only [c, Finset.sum_const, Finset.card_univ, Fintype.card_fin,
-          nsmul_eq_mul]
-        field_simp
-      _ ≤ _ := by linarith
   have hfX : ∀ i, Measurable (f i ∘ X) := fun i ↦ (hf i).comp hX
   calc
     _ ≤ (-2 * ε ^ 2 * (n * t / 2)).exp :=
-      mcdiarmid_inequality_pos' hX
-        (uniformDeviation_bounded_difference hn X hfX hb hf')
-        (uniformDeviation_measurable X hf) hε ht'
+      mcdiarmid_inequality_pos_iid_of_const hX
+        (uniformDeviation_bounded_difference hn X hfX hf')
+        (uniformDeviation_measurable X hf) hε
+        (by simpa using normalized_two_mul_bound_mcdiarmid_scale hn ht)
     _ = _ := congr_arg _ (by ring)
 
 /--
@@ -144,28 +146,19 @@ theorem empiricalRademacherComplexity_lower_tail_countable
   by_cases hn : n = 0
   · simpa [hn] using measureReal_le_one
   have hn : 0 < n := Nat.pos_of_ne_zero hn
-  let c : Fin n → ℝ := fun _ ↦ (n : ℝ)⁻¹ * 2 * b
-  have ht' : (n : ℝ) * t / 2 * ∑ i, (c i) ^ 2 ≤ 1 := by
-    apply le_of_mul_le_mul_left _ (show (0 : ℝ) < 1 / 2 from by linarith)
-    calc
-      _ = t * b ^ 2 := by
-        simp only [c, Finset.sum_const, Finset.card_univ, Fintype.card_fin,
-          nsmul_eq_mul]
-        field_simp
-      _ ≤ _ := by linarith
   calc
     _ ≤ (-2 * ε ^ 2 * ((n : ℝ) * t / 2)).exp := by
       simpa only [rademacherComplexity] using
-        (mcdiarmid_inequality_neg'
+        (mcdiarmid_inequality_neg_iid_of_const
           (μ := μ) (ι := Fin n) (X' := X)
           (f' := fun S : Fin n → 𝒳 ↦ empiricalRademacherComplexity n f S)
-          (c' := c) hX
+          (c := (n : ℝ)⁻¹ * 2 * b) hX
           (empiricalRademacherComplexity_bounded_difference
             (n := n) (f := f) hn hf')
           (measurable_empiricalRademacherComplexity_comp
             (Ω := 𝒳) (Z := 𝒳) (n := n) (f := f) (X := id)
             (fun i ↦ by simpa using hf i))
-          hε ht')
+          hε (by simpa using normalized_two_mul_bound_mcdiarmid_scale hn ht))
     _ = _ := congr_arg _ (by ring)
 
 /-- Optimized empirical-complexity lower tail with `t = 1 / (2 * b^2)`. -/
@@ -214,7 +207,7 @@ theorem uniform_deviation_tail_bound_countable
   apply measureReal_superlevel_le_of_centered
   · exact uniform_deviation_expectation_le_two_smul_rademacher_complexity
       hn X (fun i ↦ (hf i).comp hX) hb hf'
-  · exact uniform_deviation_mcdiarmid_tail (μ := μ) hX hf hb hf' ht hε
+  · exact uniform_deviation_mcdiarmid_tail (μ := μ) hX hf hf' ht hε
 
 /-- Optimized countable-class tail bound with `t = 1 / (2 * b^2)`. -/
 theorem uniform_deviation_tail_bound_countable_of_pos

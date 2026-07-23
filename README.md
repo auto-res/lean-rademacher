@@ -32,6 +32,10 @@ Core definitions remain in `Defs.lean`.  Selected declarations include:
   - (Main Theorem) Generalization error bound using Rademacher complexity
 - `empiricalRademacherComplexity` *et al.*
   - Definition(s) of Rademacher complexity 
+- `empiricalRademacherFunctional`
+  - Common finite-sign functional specializing to the absolute and one-sided empirical complexities
+- `empiricalRademacherComplexity_reindex_le` *et al.*
+  - Monotonicity and surjective-invariance API for reindexing a hypothesis class
 - `uniform_deviation_mcdiarmid_tail`
   - McDiarmid inequality (for deviations)
 - `empiricalRademacherComplexity_lower_tail_countable_of_pos`

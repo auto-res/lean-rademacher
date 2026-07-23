@@ -268,6 +268,45 @@ noncomputable instance : MeasurableSpace (Signs n) := ⊤
 
 local notation3 "𝙋" => (signVecPMF n).toMeasure
 
+/--
+PMF-integral form of `empiricalRademacherFunctional`.
+-/
+noncomputable def empiricalRademacherFunctional_pmf
+    (φ : ℝ → ℝ) (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) : ℝ :=
+  ∫ σ, ⨆ i, φ (normalizedRademacherSum n f S σ i) ∂𝙋
+
+/--
+The uniform finite average over sign vectors agrees with integration against
+the uniform sign-vector PMF, for every postprocessing function `φ`.
+-/
+lemma empiricalRademacherFunctional_eq_pmf
+    (φ : ℝ → ℝ) (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) :
+    empiricalRademacherFunctional n φ f S =
+      empiricalRademacherFunctional_pmf n φ f S := by
+  dsimp [empiricalRademacherFunctional, empiricalRademacherFunctional_pmf]
+  set g : Signs n → ℝ :=
+    fun σ ↦ ⨆ i, φ (normalizedRademacherSum n f S σ i)
+  have htsum :
+      (∫ σ, g σ ∂𝙋) =
+        ∑' σ : Signs n, g σ * ((signVecPMF n) σ).toReal := by
+    rw [PMF.integral_eq_tsum]
+    · congr
+      ext σ
+      simp
+      exact CommMonoid.mul_comm ((signVecPMF n) σ).toReal (g σ)
+    · rw [← MeasureTheory.memLp_one_iff_integrable]
+      simp
+  have huniform :
+      ∑' σ : Signs n, g σ * ((signVecPMF n) σ).toReal =
+        (Fintype.card (Signs n) : ℝ)⁻¹ * ∑ σ : Signs n, g σ := by
+    simp [signVecPMF, PMF.uniformOfFintype_apply,
+      tsum_fintype, Finset.mul_sum, ENNReal.toReal_inv]
+    apply congrArg
+    ext σ
+    exact Eq.symm (CommMonoid.mul_comm (2 ^ n)⁻¹ (g σ))
+  change (Fintype.card (Signs n) : ℝ)⁻¹ * ∑ σ : Signs n, g σ = ∫ σ, g σ ∂𝙋
+  rw [htsum, huniform]
+
 noncomputable def empiricalRademacherComplexity_pmf
     (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) : ℝ :=
   ∫ σ, ⨆ i, |(n : ℝ)⁻¹ * ∑ k : Fin n, (((σ k).1 : ℤ) : ℝ) * f i (S k)| ∂𝙋
@@ -275,30 +314,9 @@ noncomputable def empiricalRademacherComplexity_pmf
 lemma empiricalRademacherComplexity_eq_empiricalRademacherComplexity_pmf
     (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) :
     empiricalRademacherComplexity n f S = empiricalRademacherComplexity_pmf n f S := by
-  dsimp [empiricalRademacherComplexity, empiricalRademacherComplexity_pmf]
-  set g : Signs n → ℝ :=
-    (fun σ => ⨆ i, |(n : ℝ)⁻¹ * ∑ k : Fin n, (((σ k).1 : ℤ) : ℝ) * f i (S k)|)
-  have htsum :
-    (∫ σ, g σ ∂𝙋)
-      = ∑' σ : Signs n, g σ * ((signVecPMF n) σ).toReal := by
-    rw [PMF.integral_eq_tsum]
-    · congr
-      ext σ
-      simp
-      exact CommMonoid.mul_comm ((signVecPMF n) σ).toReal (g σ)
-    . dsimp [g]
-      rw [<- MeasureTheory.memLp_one_iff_integrable]
-      simp
-  have huniform :
-    ∑' σ : Signs n, g σ * ((signVecPMF n) σ).toReal
-      = (Fintype.card (Signs n) : ℝ)⁻¹ * ∑ σ : Signs n, g σ := by
-    simp [signVecPMF, PMF.uniformOfFintype_apply,
-          tsum_fintype, Finset.mul_sum, ENNReal.toReal_inv]
-    apply congrArg
-    ext σ
-    exact Eq.symm (CommMonoid.mul_comm (2 ^ n)⁻¹ (g σ))
-  rw [<- htsum] at huniform
-  rw [<- huniform]
+  simpa [empiricalRademacherComplexity_pmf,
+    empiricalRademacherFunctional_pmf, normalizedRademacherSum] using
+    (empiricalRademacherFunctional_eq_pmf n abs f S)
 
 noncomputable def empiricalRademacherComplexity_pmf_without_abs
     (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) : ℝ :=
@@ -307,30 +325,9 @@ noncomputable def empiricalRademacherComplexity_pmf_without_abs
 lemma empiricalRademacherComplexity_without_abs_eq_empiricalRademacherComplexity_pmf_without_abs
     (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) :
     empiricalRademacherComplexity_without_abs n f S = empiricalRademacherComplexity_pmf_without_abs n f S := by
-  dsimp [empiricalRademacherComplexity_without_abs, empiricalRademacherComplexity_pmf_without_abs]
-  set g : Signs n → ℝ :=
-    (fun σ => ⨆ i, (n : ℝ)⁻¹ * ∑ k : Fin n, (((σ k).1 : ℤ) : ℝ) * f i (S k))
-  have htsum :
-    (∫ σ, g σ ∂𝙋)
-      = ∑' σ : Signs n, g σ * ((signVecPMF n) σ).toReal := by
-    rw [PMF.integral_eq_tsum]
-    · congr
-      ext σ
-      simp
-      exact CommMonoid.mul_comm ((signVecPMF n) σ).toReal (g σ)
-    . dsimp [g]
-      rw [<- MeasureTheory.memLp_one_iff_integrable]
-      simp
-  have huniform :
-    ∑' σ : Signs n, g σ * ((signVecPMF n) σ).toReal
-      = (Fintype.card (Signs n) : ℝ)⁻¹ * ∑ σ : Signs n, g σ := by
-    simp [signVecPMF, PMF.uniformOfFintype_apply,
-          tsum_fintype, Finset.mul_sum, ENNReal.toReal_inv]
-    apply congrArg
-    ext σ
-    exact Eq.symm (CommMonoid.mul_comm (2 ^ n)⁻¹ (g σ))
-  rw [<- htsum] at huniform
-  rw [<- huniform]
+  simpa [empiricalRademacherComplexity_pmf_without_abs,
+    empiricalRademacherFunctional_pmf, normalizedRademacherSum] using
+    (empiricalRademacherFunctional_eq_pmf n id f S)
 
 lemma empiricalRademacherComplexity_without_abs_le_empiricalRademacherComplexity
     (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳)

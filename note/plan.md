@@ -958,3 +958,87 @@ Mathlib の `Metric.coveringNumber` への移行は、値域が `ℕ` と `ℕ�
 - [x] `import FoML.Main` から既存の公開宣言と新しい bridge を参照できる。
 - [x] `Main.lean` の主要例が数式入り docstring を持つ。
 - [x] `note/summary.md` の依存関係グラフと公開 API 一覧を新構成に同期する。
+
+## 14. Phase 8: 共通 functional、reindex、有界差分の整理
+
+### 14.1 対象
+
+前回提案の 4--9 を依存順に実施する。信頼半径の共通化（4）と
+`dudleyEntropyEstimate`（9）は Phase 7 で実装済みなので、この phase では
+公開 API と文書を再確認する。新規実装の中心は次の 5--8 である。
+
+1. McDiarmid の i.i.d. 積測度版に、全座標で同じ感度を使う wrapper を追加する。
+2. 絶対値付き・片側 Rademacher 複雑度に共通する functional と PMF bridge を
+   一度だけ記述する。
+3. 仮説クラスの添字写像に対する reindex API を追加する。
+4. 上限の差の評価と一標本置換の計算を共通補題へ分離し、
+   `BoundedDifference.lean` の重複を減らす。
+
+### 14.2 McDiarmid の定数感度 wrapper
+
+- [x] `mcdiarmid_inequality_pos_iid_of_const` を追加する。
+- [x] `mcdiarmid_inequality_neg_iid_of_const` を追加する。
+- [x] `Generalization.lean` の一様偏差の上側 tail と経験 Rademacher 複雑度の
+  下側 tail をこの wrapper から導く。
+
+wrapper は定数関数 `fun _ ↦ c` を公開定理の結論へ露出させず、
+
+$$
+t\,|\iota|\,c^2\le1
+$$
+
+を仮定として受け取る。これにより `∑ i, (c i)^2` の同じ簡約を各応用で
+繰り返さない。
+
+### 14.3 Rademacher functional と PMF bridge
+
+- [x] 正規化符号和 `normalizedRademacherSum` を追加する。
+- [x] 後処理関数 `φ : ℝ → ℝ` を受け取る
+  `empiricalRademacherFunctional` を追加する。
+- [x] 有限平均版と `signVecPMF` による積分版の一致を一般の `φ` について示す。
+- [x] 絶対値付き版は `φ = abs`、片側版は `φ = id` の系として既存 API を保つ。
+
+定義は型だけでなく項まで次の形で公開する。
+
+```lean
+normalizedRademacherSum n F S σ h
+  = (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * F h (S k)
+
+empiricalRademacherFunctional n φ F S
+  = (Fintype.card (Signs n) : ℝ)⁻¹ *
+      ∑ σ : Signs n, ⨆ h, φ (normalizedRademacherSum n F S σ h)
+```
+
+### 14.4 仮説添字の reindex API
+
+- [x] 任意の写像 `e : G → H` による経験 Rademacher 複雑度の単調性を追加する。
+- [x] `e` が全射なら、絶対値付き・片側経験 Rademacher 複雑度が不変であることを
+  追加する。
+- [x] 全射 reindex に対する期待 Rademacher 複雑度と一様偏差の不変性を追加する。
+- [x] `denseRestriction` は位相的稠密性を使う別の bridge として維持し、
+  単なる全射 reindex と混同しない。
+
+### 14.5 有界差分の共通補題
+
+- [x] 点ごとの距離評価から二つの実数値 `iSup` の距離評価を得る補題を
+  `FoML/ForMathlib` に追加する。
+- [x] 正規化標本平均の一標本置換評価を追加する。
+- [x] `uniformDeviation_bounded_difference` と
+  `empiricalRademacherComplexity_bounded_difference` をこれらの補題で整理する。
+
+### 14.6 `Main.lean` と文書
+
+- [x] 可分・高確率・経験 Rademacher 複雑度を同時に使う基本定理
+
+  $$
+  \Pr\left\{
+    \operatorname{UD}_n(F;S)
+    \ge 2\widehat{\mathfrak R}_n(F;S)+3\varepsilon
+  \right\}
+  \le
+  2\exp\left(-\frac{n\varepsilon^2}{2b^2}\right)
+  $$
+
+  を `Main.lean` の主要例として掲載する。
+- [x] `note/summary.md` の定義、bridge、依存関係グラフ、公開 API を更新する。
+- [x] `lake build`、未完証明検索、`import FoML.Main` からの `#check` を行う。

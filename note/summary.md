@@ -31,8 +31,12 @@ flowchart LR
     defs["Defs"]
     symm["Symmetrization"]
     rademacher["Rademacher"]
+    rademacherProperty["RademacherVariableProperty"]
+    reindex["RademacherReindex"]
     mcdiarmid["McDiarmid"]
     boundedDiff["BoundedDifference"]
+    finiteSample["ForMathlib/Analysis/<br/>FiniteSample"]
+    iSupBridge["ForMathlib/Order/<br/>ISup"]
     measureBridge["ForMathlib/MeasureTheory/<br/>Measure/Real"]
     topologyBridge["ForMathlib/Topology/<br/>SeparableSpace"]
     confidenceCalc["ForMathlib/Probability/<br/>Confidence"]
@@ -48,10 +52,17 @@ flowchart LR
     main["Main"]
 
     defs --> symm
+    defs --> rademacherProperty
+    rademacherProperty --> rademacher
     symm --> rademacher
     rademacher --> boundedDiff
     rademacher --> generalization
+    rademacher --> reindex
     mcdiarmid --> generalization
+    finiteSample --> boundedDiff
+    finiteSample --> reindex
+    iSupBridge --> boundedDiff
+    iSupBridge --> reindex
     boundedDiff --> generalization
     measureBridge --> generalization
 
@@ -70,6 +81,7 @@ flowchart LR
     l2Gen --> main
     l1Gen --> main
     dudleyGen --> main
+    reindex --> main
 ```
 
 ## 1. 共通の設定と中心定義
@@ -105,7 +117,43 @@ $$
 
 が示される。経験 Rademacher 複雑度は、この有限型上の明示的な平均として定義される。
 
-### 1.3 絶対値付き経験 Rademacher 複雑度
+### 1.3 共通 Rademacher functional
+
+絶対値付き版と片側版に共通する符号和は、型だけでなく項まで次のように定義される。
+
+```lean
+def normalizedRademacherSum
+    (n : ℕ) (F : ι → 𝒳 → ℝ) (S : Fin n → 𝒳)
+    (σ : Signs n) (h : ι) : ℝ :=
+  (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * F h (S k)
+
+def empiricalRademacherFunctional
+    (n : ℕ) (φ : ℝ → ℝ)
+    (F : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) : ℝ :=
+  (Fintype.card (Signs n) : ℝ)⁻¹ *
+    ∑ σ : Signs n, ⨆ h,
+      φ (normalizedRademacherSum n F S σ h)
+```
+
+したがって、絶対値付き版は $\varphi=\lvert\cdot\rvert$、片側版は
+$\varphi=\operatorname{id}$ の特殊化である。この対応は
+`empiricalRademacherFunctional_abs` と
+`empiricalRademacherFunctional_id` で明示される。
+
+`RademacherVariableProperty.lean` には PMF 版も
+
+```lean
+noncomputable def empiricalRademacherFunctional_pmf
+    (φ : ℝ → ℝ) (F : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) : ℝ :=
+  ∫ σ, ⨆ h, φ (normalizedRademacherSum n F S σ h)
+    ∂(signVecPMF n).toMeasure
+```
+
+と定義される。有限符号平均とこの積分の一致は
+`empiricalRademacherFunctional_eq_pmf` で一度だけ示し、従来の絶対値付き・
+片側 PMF bridge はその二つの系として保っている。
+
+### 1.4 絶対値付き経験 Rademacher 複雑度
 
 ```lean
 def empiricalRademacherComplexity
@@ -126,7 +174,7 @@ $$
 
 を表す。汎化評価と線形予測器の最終的な経験評価では、この絶対値付き定義を使う。
 
-### 1.4 片側経験 Rademacher 複雑度
+### 1.5 片側経験 Rademacher 複雑度
 
 ```lean
 def empiricalRademacherComplexity_without_abs
@@ -163,7 +211,7 @@ $$
 
 が示される。この不等式だけでは片側版の上界を絶対値付き版へ移せないため、Dudley との接続には後述の符号対称化を使う。
 
-### 1.5 期待 Rademacher 複雑度
+### 1.6 期待 Rademacher 複雑度
 
 ```lean
 def rademacherComplexity
@@ -183,7 +231,7 @@ $$
 
 を表す。
 
-### 1.6 一様偏差
+### 1.7 一様偏差
 
 ```lean
 def uniformDeviation
@@ -295,7 +343,13 @@ $$
 | `mcdiarmid_inequality_neg` | 下側 tail。 |
 | `mcdiarmid_inequality_pos'` | 同じ $X$ を積測度の各座標に適用する i.i.d. 版。 |
 | `mcdiarmid_inequality_neg'` | 下側 tail の i.i.d. 積測度版。 |
+| `mcdiarmid_inequality_pos_iid_of_const` | 全座標の感度が同じ $c$ である i.i.d. 上側 tail。 |
+| `mcdiarmid_inequality_neg_iid_of_const` | 全座標の感度が同じ $c$ である i.i.d. 下側 tail。 |
 | `bounded_difference_iff` | 絶対値付き感度条件と片側条件の同値。 |
+
+定数感度版は $t|\iota|c^2\le1$ を直接受け取る。汎化評価では
+$c=2b/n$ を代入するため、各証明で定数関数と
+$\sum_i c^2=|\iota|c^2$ を再展開する必要がない。
 
 ## 3. Rademacher 複雑度による汎化評価
 
@@ -410,6 +464,15 @@ $$
 $$
 
 を示す。各 Rademacher 符号について正規化符号和の差を評価し、その後で関数クラス上の上限と有限符号平均へ評価を移している。
+
+この二つの証明で共通する部分は `ForMathlib` へ分離されている。
+
+- `abs_normalized_fin_sum_le`: 一様有界な正規化有限和の評価。
+- `abs_normalized_fin_sum_update_sub_le`: 一座標置換による正規化有限和の変化。
+- `abs_ciSup_sub_ciSup_le`: 点ごとの距離評価から二つの実数値 `iSup` の距離評価への移送。
+
+これにより、統計的な証明側には「各仮説の変化を評価し、その評価を上限と符号平均へ
+移す」という構造だけが残る。
 
 ### 3.4 可算クラスの tail 評価
 
@@ -1331,7 +1394,24 @@ $$
 | 可分クラスの tail、信頼度形式 | `uniform_deviation_tail_bound_separable_of_empirical_le_delta` |
 | 可算・可分クラスの期待量上界版、信頼度形式 | `uniform_deviation_tail_bound_countable_of_rademacher_le_delta`, `uniform_deviation_tail_bound_separable_of_rademacher_le_delta` |
 
-### 8.3 線形予測器
+### 8.3 仮説添字の reindex
+
+[`FoML/RademacherReindex.lean`](../FoML/RademacherReindex.lean) は、関数クラスを
+添字写像 $e:G\to H$ に沿って引き戻す操作を扱う。
+
+| 分類 | 宣言 |
+|---|---|
+| 一般の後処理を持つ functional、全射不変性 | `empiricalRademacherFunctional_reindex_eq_of_surjective` |
+| 経験 Rademacher 複雑度、任意写像に対する単調性 | `empiricalRademacherComplexity_reindex_le` |
+| 絶対値付き・片側経験量、全射不変性 | `empiricalRademacherComplexity_reindex_eq_of_surjective`, `empiricalRademacherComplexity_without_abs_reindex_eq_of_surjective` |
+| 期待 Rademacher 複雑度、全射不変性 | `rademacherComplexity_reindex_eq_of_surjective` |
+| 一様偏差、全射不変性 | `uniformDeviation_reindex_eq_of_surjective` |
+
+任意の写像では引き戻したクラスが元のクラスの部分クラスなので、経験複雑度は増えない。
+全射なら実際に同じ関数族を列挙しているため等号になる。これは位相と連続性を使って
+可算稠密部分へ移す `denseRestriction` とは別の、純粋に集合論的な bridge である。
+
+### 8.4 線形予測器
 
 | 分類 | $\ell_2$ | $\ell_1/\ell_\infty$ |
 |---|---|---|
@@ -1344,7 +1424,7 @@ $$
 | 決定論的 E2E、`δ` 形式 | `linear_predictor_l2_uniform_deviation_tail_bound_delta` | `linear_predictor_l1_uniform_deviation_tail_bound_delta` |
 | 標本依存 E2E、`δ` 形式 | `linear_predictor_l2_uniform_deviation_tail_bound_of_sample_delta` | `linear_predictor_l1_uniform_deviation_tail_bound_of_sample_delta` |
 
-### 8.4 Dudley
+### 8.5 Dudley
 
 | 分類 | 宣言 |
 |---|---|
@@ -1419,6 +1499,11 @@ $$
 $$
 
 を得る。Dudley の観測標本上の右辺もこの経路へ直接代入できる。
+
+[`FoML/Main.lean`](../FoML/Main.lean) には、この接続の基本的な利用例として
+`uniform_deviation_tail_bound_separable_of_empirical_complexity` をそのまま
+繰り返している。したがって公開入口だけを読んでも、可分クラス、高確率評価、
+観測標本の経験 Rademacher 複雑度という三つの条件を組み合わせた定理を確認できる。
 
 さらに、共通 bridge は任意の点ごとの上界
 
@@ -1516,7 +1601,9 @@ $$
 | [`MeasurePiLemmas.lean`](../FoML/MeasurePiLemmas.lean) | 積測度の座標分布と独立性。 |
 | [`ExpectationInequalities.lean`](../FoML/ExpectationInequalities.lean) | 一様上界から期待値上界を得る補助定理。 |
 | [`ForMathlib/Probability/Moments.lean`](../FoML/ForMathlib/Probability/Moments.lean) | exponential tilting、MGF/CGF 微分、分散評価。 |
+| [`ForMathlib/Analysis/FiniteSample.lean`](../FoML/ForMathlib/Analysis/FiniteSample.lean) | 正規化有限和の一様評価と一座標置換に対する感度評価。 |
 | [`ForMathlib/Analysis/SumIntegralComparisons.lean`](../FoML/ForMathlib/Analysis/SumIntegralComparisons.lean) | 単調な分割列に沿う左 Riemann 和と反単調関数の積分の比較。 |
+| [`ForMathlib/Order/ISup.lean`](../FoML/ForMathlib/Order/ISup.lean) | 全射 reindex による `iSup` の不変性と、二つの実数値 `iSup` の距離評価。 |
 | [`ForMathlib/MeasureTheory/Measure/Real.lean`](../FoML/ForMathlib/MeasureTheory/Measure/Real.lean) | superlevel 事象の単調性、中心化 tail と平均上界から非中心化 tail への変換。 |
 | [`ForMathlib/Probability/Confidence.lean`](../FoML/ForMathlib/Probability/Confidence.lean) | 一般の前係数 $\kappa$ を持つ信頼半径と指数関数の計算。 |
 | [`ForMathlib/Topology/SeparableSpace.lean`](../FoML/ForMathlib/Topology/SeparableSpace.lean) | 可分空間上の上限、`denseRestriction`、可測性・有界性の transfer。 |
@@ -1524,12 +1611,13 @@ $$
 | [`McDiarmid.lean`](../FoML/McDiarmid.lean) | 一般版・下側版と、それぞれの i.i.d. 積測度版 McDiarmid。 |
 | [`Symmetrization.lean`](../FoML/Symmetrization.lean) | ghost sample と Rademacher 符号による symmetrization。 |
 | [`Rademacher.lean`](../FoML/Rademacher.lean) | 期待一様偏差評価、経験量の可測性・可積分性、固定標本評価から期待量への接続。 |
+| [`RademacherReindex.lean`](../FoML/RademacherReindex.lean) | 仮説添字写像に対する経験量の単調性と、全射に対する経験量・期待量・一様偏差の不変性。 |
 | [`BoundedDifference.lean`](../FoML/BoundedDifference.lean) | 一様偏差と経験 Rademacher 複雑度の感度 $2b/n$、一様偏差の可測性。 |
 | [`SeparableSpaceSup.lean`](../FoML/SeparableSpaceSup.lean) | 旧 import path を保つ互換モジュール。実装は `ForMathlib/Topology/SeparableSpace.lean`。 |
 | [`Generalization.lean`](../FoML/Generalization.lean) | 可算クラスの期待評価、中心化 tail、経験複雑度の下側集中、決定論的・標本依存しきい値の bridge。 |
 | [`SeparableGeneralization.lean`](../FoML/SeparableGeneralization.lean) | `denseRestriction` による可分クラスへの移送と可分クラス用 bridge。 |
 | [`Confidence.lean`](../FoML/Confidence.lean) | 決定論的・標本依存評価の $\delta$ 形式。 |
-| [`RademacherVariableProperty.lean`](../FoML/RademacherVariableProperty.lean) | 符号の直交性、PMF 表現、符号対称化、負号閉性。 |
+| [`RademacherVariableProperty.lean`](../FoML/RademacherVariableProperty.lean) | 符号の直交性、共通 functional の PMF bridge、符号対称化、負号閉性。 |
 | [`MaximalInequality.lean`](../FoML/MaximalInequality.lean) | 有限個の sub-Gaussian 和の expected maximum。 |
 | [`Massart.lean`](../FoML/Massart.lean) | PMF 版 Massart finite-class lemma。 |
 | [`LinearPredictorL2.lean`](../FoML/LinearPredictorL2.lean) | $\ell_2$ 線形予測器、標本の二乗ノルムを残す経験評価、その一様半径版。 |
@@ -1555,4 +1643,10 @@ CRLF または混在改行も LF へ正規化済みである。
 
 ## 11. 検証状態
 
-2026-07-24 時点で、Phase 7 の bridge 整理とモジュール分割を含む全体 `lake build` は成功している。`import FoML.Main` から、`MeasureTheory` 名前空間の測度 bridge、信頼半径、新しい汎化 bridge、`denseRestriction`、両線形クラスの E2E 評価、`dudleyEntropyEstimate` と Dudley の信頼度形式を参照できる。`FoML` 以下に `sorry` または `admit` はない。文書中の高確率評価はすべて悪い事象の確率に対する上界として記している。
+2026-07-24 時点で、Phase 8 の functional、reindex、定数感度 McDiarmid、
+有界差分の整理を含む全体 `lake build` は成功している。`import FoML.Main` から、
+`MeasureTheory` 名前空間の測度 bridge、信頼半径、新しい汎化 bridge、
+`denseRestriction`、reindex API、両線形クラスの E2E 評価、
+`dudleyEntropyEstimate` と Dudley の信頼度形式を参照できる。`FoML` 以下に
+`sorry` または `admit` はない。文書中の高確率評価はすべて悪い事象の確率に
+対する上界として記している。

@@ -1070,3 +1070,44 @@ theorem mcdiarmid_inequality_neg'
   have hX : ∀ i, Measurable (X i) := fun i ↦ by measurability
   have hX' : iIndepFun X μⁿ := pi_comp_eval_iIndepFun hX''
   exact mcdiarmid_inequality_neg X hX hX' f' c' hfι hf'' _ hε _ ht'
+
+/--
+Upper-tail McDiarmid inequality for an i.i.d. sample when every coordinate
+has the same bounded-difference constant `c`.
+
+The hypothesis `t * |ι| * c^2 ≤ 1` is the constant-sensitivity form of
+`t * ∑ i, (c i)^2 ≤ 1`.
+-/
+theorem mcdiarmid_inequality_pos_iid_of_const
+  {X' : Ω → 𝓧} (hX : Measurable X')
+  {f' : (ι → 𝓧) → ℝ} {c : ℝ}
+  (hf : ∀ (i : ι) (x : ι → 𝓧) (x' : 𝓧),
+    |f' x - f' (Function.update x i x')| ≤ c)
+  (hf_meas : Measurable f')
+  {ε : ℝ} (hε : 0 ≤ ε)
+  {t : ℝ} (ht : t * (Fintype.card ι : ℝ) * c ^ 2 ≤ 1) :
+  (μⁿ (fun ω : ι → Ω ↦
+    f' (X' ∘ ω) - μⁿ[fun ω : ι → Ω ↦ f' (X' ∘ ω)] ≥ ε)).toReal ≤
+      (-2 * ε ^ 2 * t).exp := by
+  apply mcdiarmid_inequality_pos' hX hf hf_meas hε
+  simpa only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul,
+    mul_assoc] using ht
+
+/--
+Lower-tail McDiarmid inequality for an i.i.d. sample when every coordinate
+has the same bounded-difference constant `c`.
+-/
+theorem mcdiarmid_inequality_neg_iid_of_const
+  {X' : Ω → 𝓧} (hX : Measurable X')
+  {f' : (ι → 𝓧) → ℝ} {c : ℝ}
+  (hf : ∀ (i : ι) (x : ι → 𝓧) (x' : 𝓧),
+    |f' x - f' (Function.update x i x')| ≤ c)
+  (hf_meas : Measurable f')
+  {ε : ℝ} (hε : 0 ≤ ε)
+  {t : ℝ} (ht : t * (Fintype.card ι : ℝ) * c ^ 2 ≤ 1) :
+  (μⁿ (fun ω : ι → Ω ↦
+    f' (X' ∘ ω) - μⁿ[fun ω : ι → Ω ↦ f' (X' ∘ ω)] ≤ -ε)).toReal ≤
+      (-2 * ε ^ 2 * t).exp := by
+  apply mcdiarmid_inequality_neg' hX hf hf_meas hε
+  simpa only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul,
+    mul_assoc] using ht
