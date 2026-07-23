@@ -1,6 +1,7 @@
 import FoML.Generalization.LinearPredictorL2
 import FoML.Generalization.LinearPredictorL1
 import FoML.Generalization.Dudley
+import FoML.Generalization.Learning
 import FoML.Rademacher.Reindex
 
 /-!
@@ -257,5 +258,83 @@ example
   exact uniform_deviation_tail_bound_separable_of_dudley_delta
     F hF_meas X hX hb hF_bound hF_cont hn hα hαc
     htb hnorm hδ hδ_one
+
+/-!
+## Approximate ERM and excess risk
+
+Let `A(S)` be an $\eta$-approximate empirical risk minimizer for a bounded
+loss class $\ell$.  The deterministic oracle inequality
+
+$$
+R(A(S))-R(h^\star)
+\leq
+2\operatorname{UD}_n(\ell;S)+\eta
+$$
+
+composes with the observed empirical Rademacher estimate to give
+
+$$
+\Pr\!\left\{
+R(A(S))-R(h^\star)
+\geq
+4C(S)+6b\sqrt{\frac{2\log(2/\delta)}{n}}+\eta
+\right\}
+\leq\delta,
+$$
+
+whenever
+$\widehat{\mathfrak R}_n(\ell;S)\leq C(S)$.
+The learning rule itself need not be measurable: the conclusion uses outer
+probability through `Measure.real`.
+-/
+
+/-- Main sample-dependent excess-risk example for an approximate ERM. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty H]
+    [TopologicalSpace H] [SeparableSpace H] [FirstCountableTopology H]
+    [IsProbabilityMeasure μ]
+    (ℓ : H → 𝒳 → ℝ) (hℓ_meas : ∀ h, Measurable (ℓ h))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    (C : (Fin n → 𝒳) → ℝ)
+    {b η δ : ℝ} (hb : 0 < b) (hℓ_bound : ∀ h x, |ℓ h x| ≤ b)
+    (hℓ_cont : ∀ x : 𝒳, Continuous fun h ↦ ℓ h x)
+    (A : (Fin n → 𝒳) → H)
+    (hA : ∀ S, IsApproxERM η n ℓ S (A S))
+    (hC : ∀ S, empiricalRademacherComplexity n ℓ S ≤ C S)
+    (hstar : H) (hn : 0 < n) (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      4 * C (X ∘ S) + 6 * sampleConfidenceRadius b δ n + η ≤
+        excessRisk ℓ μ X (A (X ∘ S)) hstar}).toReal ≤ δ := by
+  exact approxERM_excessRisk_tail_bound_separable_of_sample_empirical_le_delta
+    (μ := μ) hn ℓ hℓ_meas X hX C hb hℓ_bound hℓ_cont
+    A hA hC hstar hδ hδ_one
+
+/-!
+For a finite hypothesis type, a centered $L$-Lipschitz loss satisfies the
+absolute-complexity contraction estimate
+
+$$
+\widehat{\mathfrak R}_n((\ell-\ell(0,\cdot))\circ F;S)
+\leq
+2L\,\widehat{\mathfrak R}_n(F;S).
+$$
+
+The factor `2` is specific to this repository's absolute-value definition.
+The corresponding one-sided theorem has factor `L`.
+-/
+
+/-- Main contraction example for a centered supervised loss. -/
+example
+    {𝒴 : Type*} [Fintype H] [Nonempty H]
+    (F : H → 𝒳 → ℝ) (loss : ℝ → 𝒴 → ℝ)
+    (S : Fin n → 𝒳 × 𝒴) {L : ℝ} (hL : 0 ≤ L)
+    (hloss : ∀ y u v, |loss u y - loss v y| ≤ L * |u - v|) :
+    empiricalRademacherComplexity n
+        (supervisedLossClass F (centeredLoss loss)) S ≤
+      2 * L *
+        empiricalRademacherComplexity n
+          (fun (h : H) (z : 𝒳 × 𝒴) ↦ F h z.1) S := by
+  exact empiricalRademacherComplexity_centered_supervisedLossClass_le
+    n F loss S hL hloss
 
 end

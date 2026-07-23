@@ -1275,8 +1275,8 @@ def IsApproxERM
 
 ### 18.2 決定論的 oracle inequality
 
-- [ ] `uniformDeviation` が risk と empirical risk の差の上限に定義上等しいことを示す。
-- [ ] `hhat` が ERM なら任意の比較対象 `hstar` に対し
+- [x] `uniformDeviation` が risk と empirical risk の差の上限に定義上等しいことを示す。
+- [x] `hhat` が ERM なら任意の比較対象 `hstar` に対し
 
   $$
   R(h_{\rm ERM})-R(h^\star)
@@ -1284,7 +1284,7 @@ def IsApproxERM
   $$
 
   を示す。
-- [ ] $\eta$-近似 ERM について
+- [x] $\eta$-近似 ERM について
 
   $$
   R(\widehat h)-R(h^\star)
@@ -1306,11 +1306,15 @@ $$
 
 を定義する。
 
-- [ ] 有界損失を直接関数クラスとして既存の汎化定理へ渡す bridge を先に実装する。
-- [ ] 各 $y$ について $u\mapsto\ell(u,y)$ が $L$-Lipschitz である場合の
+- [x] 有界損失を直接関数クラスとして既存の汎化定理へ渡す bridge を先に実装する。
+- [x] 各 $y$ について $u\mapsto\ell(u,y)$ が $L$-Lipschitz である場合の
   Rademacher contraction inequality を追加する。
-- [ ] $\ell(0,y)\ne0$ の場合は中心化した損失へ書き換える補題を用意する。
-- [ ] contraction の定数が絶対値付き定義と片側定義で異ならないかを明示的に検証する。
+- [x] $\ell(0,y)\ne0$ の場合は中心化した損失へ書き換える補題を用意する。
+- [x] contraction の定数が絶対値付き定義と片側定義で異ならないかを明示的に検証する。
+
+現時点の contraction は有限仮説型について完全に証明している。片側定義の定数は
+$L$、本リポジトリの絶対値付き定義の定数は $2L$ である。一般の可分クラスへの
+拡張は有限近似または別の contraction bridge として切り分ける。
 
 ### 18.4 高確率の余剰誤差評価
 
@@ -1340,11 +1344,14 @@ $$
 
 を示す。ここで $b$ は損失値の絶対値上界である。
 
-- [ ] 標本依存学習則 `A : (Fin n → 𝒵) → H` と点ごとの
+- [x] 標本依存学習則 `A : (Fin n → 𝒵) → H` と点ごとの
   `IsApproxERM η ℓ S (A S)` を受け取る定理を追加する。
-- [ ] 信頼度 $\delta$ 形式を追加する。
+- [x] 信頼度 $\delta$ 形式を追加する。
 - [ ] RKHS と Lipschitz loss を contraction で接続した E2E 例を追加する。
-- [ ] `Main.lean` に ERM の主要な利用例を掲載する。
+- [x] `Main.lean` に ERM の主要な利用例を掲載する。
+
+RKHS との E2E 接続は Phase 10 の特徴写像・kernel trace 定理を実装した時点で
+追加する。
 
 ### 18.5 実装順
 
@@ -1357,8 +1364,8 @@ $$
 
 ### 18.6 完了条件
 
-- [ ] 最終定理の結論が `uniformDeviation` ではなく余剰誤差になっている。
-- [ ] 学習則の measurability と argmin の存在を、不要な定理へ過剰に要求しない。
-- [ ] exact ERM と approximate ERM の両方を扱う。
-- [ ] 決定論的 oracle inequality、Rademacher 評価、contraction、tail 評価が
+- [x] 最終定理の結論が `uniformDeviation` ではなく余剰誤差になっている。
+- [x] 学習則の measurability と argmin の存在を、不要な定理へ過剰に要求しない。
+- [x] exact ERM と approximate ERM の両方を扱う。
+- [x] 決定論的 oracle inequality、Rademacher 評価、contraction、tail 評価が
   個別の bridge として再利用できる。

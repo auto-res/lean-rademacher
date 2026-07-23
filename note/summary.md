@@ -1,14 +1,13 @@
 # `lean-rademacher` の実装概要
 
 - 最終確認日: 2026-07-24
-- 基準ブランチ: `ss`
-- 基準コミット: `4a059448d0ee6661a475723bc321e9e52a226a0f`
+- 基準ブランチ: `ss`（Phase 12 完了時点）
 
 ## 0. 対象と現在の到達点
 
 この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。抽象的な汎化定理は [`FoML/Generalization/Countable.lean`](../FoML/Generalization/Countable.lean)、[`FoML/Generalization/Separable.lean`](../FoML/Generalization/Separable.lean)、[`FoML/Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) に分割されている。[`FoML/Main.lean`](../FoML/Main.lean) は主要な利用例を繰り返す入口、[`FoML.lean`](../FoML.lean) はライブラリ全体の入口である。
 
-現在の実装は、次の六つの経路を一つの公開 API として接続している。
+現在の実装は、次の七つの経路を一つの公開 API として接続している。
 
 1. 一様偏差の期待値を symmetrization により期待 Rademacher 複雑度で評価する。
 2. 一様偏差の有界差分性と McDiarmid の不等式から高確率汎化評価を得る。
@@ -16,6 +15,8 @@
 4. 経験 Rademacher 複雑度自身の下側集中を使い、観測標本の経験量を閾値に残した高確率汎化評価を得る。
 5. 標本ごとの経験評価 $\widehat{\mathfrak R}_n(f;S)\le C(S)$ を、$C(S)$ がランダムな閾値に残る高確率汎化評価へ移す。
 6. 線形予測器または Dudley entropy integral による経験複雑度の評価を上記の接続定理へ投入し、信頼度 $0<\delta\le1$ を直接受け取る E2E 評価を得る。
+7. 一様偏差評価を ERM の決定論的 oracle inequality と合成し、期待または経験
+   Rademacher 複雑度から余剰誤差の高確率評価を得る。
 
 とくに、以前分離していた次の二点は接続済みである。
 
@@ -23,6 +24,10 @@
 - 両線形クラスについて、一様半径による決定論的複雑度項だけでなく、観測標本の二乗ノルムまたは座標ごとの二乗和を残す標本依存 E2E 評価がある。
 - Dudley の片側経験複雑度の評価を、符号対称化により絶対値付き経験複雑度へ変換し、標本一様な entropy 評価から期待量と高確率汎化評価を得られる。
 - Dudley の右辺を標本一様な定数へ置き換えず、観測標本上の entropy integral をランダムな閾値に残す高確率汎化評価があり、`ε` 形式と `δ` 形式の両方を公開する。
+- 厳密 ERM と $\eta$-近似 ERM の両方について、標本依存学習則を受け取る
+  余剰誤差評価があり、学習則の可測性や `argmin` の存在を不要に仮定しない。
+- 有限仮説型について Lipschitz contraction を証明し、片側経験 Rademacher
+  複雑度では定数 $L$、絶対値付き定義では定数 $2L$ となることを明示している。
 
 概念上の依存関係は次のようにまとめられる。
 
@@ -49,6 +54,10 @@ flowchart LR
     l2Gen["Generalization/<br/>LinearPredictorL2"]
     l1Gen["Generalization/<br/>LinearPredictorL1"]
     dudleyGen["Generalization/<br/>Dudley"]
+    learningDefs["Learning/<br/>Defs"]
+    erm["Learning/<br/>ERM"]
+    contraction["Learning/<br/>Contraction"]
+    learningGen["Generalization/<br/>Learning"]
     main["Main"]
 
     defs --> symm
@@ -77,10 +86,19 @@ flowchart LR
     confidence --> l1Gen
     dudley --> dudleyGen
     confidence --> dudleyGen
+    defs --> learningDefs
+    finiteSample --> erm
+    learningDefs --> erm
+    rademacherProperty --> contraction
+    learningDefs --> contraction
+    erm --> learningGen
+    contraction --> learningGen
+    confidence --> learningGen
 
     l2Gen --> main
     l1Gen --> main
     dudleyGen --> main
+    learningGen --> main
     reindex --> main
 ```
 
@@ -94,6 +112,7 @@ FoML/
 ├── Rademacher/       # 符号、対称化、期待量、有界差分、reindex
 ├── Entropy/          # 被覆数、経験擬距離、Massart、Dudley
 ├── Model/            # 個別の仮説クラス
+├── Learning/         # risk、ERM、oracle inequality、contraction
 ├── Generalization/   # 可算・可分 bridge、信頼度形式、個別 E2E
 └── ForMathlib/       # 統計的学習理論に依存しない補助補題
 ```
@@ -1453,6 +1472,108 @@ $$
 | 観測標本上の entropy integral から tail、`ε` 形式 | `uniform_deviation_tail_bound_separable_of_dudley` |
 | 観測標本上の entropy integral から tail、`δ` 形式 | `uniform_deviation_tail_bound_separable_of_dudley_delta` |
 
+### 8.6 損失、ERM、余剰誤差
+
+[`FoML/Learning/Defs.lean`](../FoML/Learning/Defs.lean) は、型だけでなく項まで
+次を定義する。
+
+```lean
+def populationRisk
+    (ℓ : H → 𝒵 → ℝ) (μ : Measure Ω) (Z : Ω → 𝒵) (h : H) : ℝ :=
+  ∫ ω, ℓ h (Z ω) ∂μ
+
+def empiricalRisk
+    (n : ℕ) (ℓ : H → 𝒵 → ℝ) (S : Fin n → 𝒵) (h : H) : ℝ :=
+  (n : ℝ)⁻¹ * ∑ k : Fin n, ℓ h (S k)
+
+def excessRisk
+    (ℓ : H → 𝒵 → ℝ) (μ : Measure Ω) (Z : Ω → 𝒵)
+    (h hstar : H) : ℝ :=
+  populationRisk ℓ μ Z h - populationRisk ℓ μ Z hstar
+
+def IsERM
+    (n : ℕ) (ℓ : H → 𝒵 → ℝ) (S : Fin n → 𝒵) (hhat : H) : Prop :=
+  ∀ h, empiricalRisk n ℓ S hhat ≤ empiricalRisk n ℓ S h
+
+def IsApproxERM
+    (η : ℝ) (n : ℕ) (ℓ : H → 𝒵 → ℝ)
+    (S : Fin n → 𝒵) (hhat : H) : Prop :=
+  ∀ h, empiricalRisk n ℓ S hhat ≤ empiricalRisk n ℓ S h + η
+```
+
+`Learning/ERM.lean` の
+`IsApproxERM.excessRisk_le_two_mul_uniformDeviation` は
+
+$$
+R(\widehat h)-R(h^\star)
+\le
+2\operatorname{UD}_n(\ell;S)+\eta
+$$
+
+を示す。これは確率論を使わない決定論的 oracle inequality である。
+`Generalization/Learning.lean` はこの不等式を既存の可分クラス向け tail と合成し、
+
+$$
+\Pr\left\{
+R(A(S))-R(h^\star)
+\ge
+4C+2\varepsilon+\eta
+\right\}
+\le
+\exp\left(-\frac{n\varepsilon^2}{2b^2}\right)
+$$
+
+および
+
+$$
+\Pr\left\{
+R(A(S))-R(h^\star)
+\ge
+4\widehat{\mathfrak R}_n(\ell;S)+6\varepsilon+\eta
+\right\}
+\le
+2\exp\left(-\frac{n\varepsilon^2}{2b^2}\right)
+$$
+
+を公開する。信頼度 $\delta$ 形式と、任意の標本依存上界
+$\widehat{\mathfrak R}_n(\ell;S)\le C(S)$ を使う形式もある。
+
+予測器 $F_h$ と損失 `loss` から作るクラスは
+
+```lean
+def supervisedLossClass
+    (F : H → 𝒳 → ℝ) (loss : ℝ → 𝒴 → ℝ) :
+    H → (𝒳 × 𝒴) → ℝ :=
+  fun h z ↦ loss (F h z.1) z.2
+```
+
+である。`centeredLoss loss u y = loss u y - loss 0 y` により零点で中心化できる。
+有限仮説型では `Learning/Contraction.lean` が
+
+$$
+\widehat{\mathfrak R}^{\mathrm{noabs}}_n(\psi\circ F;S)
+\le L\widehat{\mathfrak R}^{\mathrm{noabs}}_n(F;S),
+\qquad
+\widehat{\mathfrak R}_n(\psi\circ F;S)
+\le 2L\widehat{\mathfrak R}_n(F;S)
+$$
+
+を証明する。後者の係数 $2$ は、本リポジトリが仮説上限の内側に絶対値を置く
+定義を採用しているためである。
+
+主要な公開宣言は次である。
+
+| 分類 | 宣言 |
+|---|---|
+| 点ごとの oracle inequality | `IsApproxERM.excessRisk_le`, `IsERM.excessRisk_le` |
+| 一様偏差による oracle inequality | `IsApproxERM.excessRisk_le_two_mul_uniformDeviation`, `IsERM.excessRisk_le_two_mul_uniformDeviation` |
+| 期待複雑度による余剰誤差 tail | `approxERM_excessRisk_tail_bound_separable_of_rademacher_le` |
+| 経験複雑度による余剰誤差 tail | `approxERM_excessRisk_tail_bound_separable_of_empirical_complexity` |
+| 信頼度形式 | `approxERM_excessRisk_tail_bound_separable_of_rademacher_le_delta`, `approxERM_excessRisk_tail_bound_separable_of_sample_empirical_le_delta` |
+| 片側 contraction | `empiricalRademacherComplexity_without_abs_contraction_finite` |
+| 絶対値付き contraction | `empiricalRademacherComplexity_contraction_finite` |
+| 中心化 supervised loss | `empiricalRademacherComplexity_centered_supervisedLossClass_le` |
+
 ## 9. 現在の接続関係と注意点
 
 ### 9.1 固定標本評価から汎化評価への接続
@@ -1540,6 +1661,22 @@ $$
 
 を使い、確率上界を $\delta$ とする。
 
+損失クラスに対しては、これらの一様偏差評価を決定論的 oracle inequality へ
+渡すことで、終点を `uniformDeviation` ではなく `excessRisk` にできる。
+特に標本依存上界 $C(S)$ を用いると
+
+$$
+\Pr\left\{
+R(A(S))-R(h^\star)
+\ge
+4C(S)+6b\sqrt{\frac{2\log(2/\delta)}{n}}+\eta
+\right\}
+\le\delta
+$$
+
+を得る。`A` は各標本上で $\eta$-近似 ERM であればよく、事象を外確率で
+評価するため `A` の可測性は要求しない。
+
 ### 9.2 Dudley の片側版と絶対値付き版
 
 `dudley_entropy_integral_bound` は片側経験複雑度を評価する。絶対値付き版への接続では、比較不等式を逆向きに使わず、
@@ -1594,11 +1731,14 @@ Lean の実数では $0^{-1}=0$ なので、中心定義は $n=0$ でも総関�
 
 次は現行の主要 API には含まれていない。
 
-- Lipschitz loss に対する contraction inequality。
-- リスク、経験リスク、ERM、余剰誤差まで接続した学習アルゴリズム単位の E2E 評価。現在の E2E の終点は `uniformDeviation` である。
 - RKHS の具体的な複雑度評価。
 - Lipschitz 関数やニューラルネットワークに対する具体的な被覆数評価。
 - 符号対称化前後の被覆数を係数 $2$ で比較する補題。
+- 一般の非有限可分仮説型に対する contraction inequality。現状の完全な
+  contraction 定理は有限仮説型を扱う。
+- コンパクト性と連続性から population risk minimizer または ERM の存在を
+  導く定理。現在は minimizer を選択せず `IsERM`、`IsApproxERM` という述語で
+  受け取る。
 
 ### 9.8 標本依存評価の定数
 
@@ -1644,7 +1784,11 @@ $$
 | [`Generalization/LinearPredictorL2.lean`](../FoML/Generalization/LinearPredictorL2.lean) | $\ell_2$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
 | [`Generalization/LinearPredictorL1.lean`](../FoML/Generalization/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
 | [`Generalization/Dudley.lean`](../FoML/Generalization/Dudley.lean) | `dudleyEntropyEstimate` と、Dudley 評価から期待量・高確率汎化評価への接続。 |
-| [`Main.lean`](../FoML/Main.lean) | 数式入り docstring と `example` による汎用 bridge、線形予測器、Dudley の主要な利用例。 |
+| [`Learning/Defs.lean`](../FoML/Learning/Defs.lean) | population risk、empirical risk、余剰誤差、ERM 述語、supervised loss class。 |
+| [`Learning/ERM.lean`](../FoML/Learning/ERM.lean) | 点ごとの偏差および一様偏差から得る決定論的 ERM oracle inequality。 |
+| [`Learning/Contraction.lean`](../FoML/Learning/Contraction.lean) | 有限仮説型の片側・絶対値付き Lipschitz contraction と中心化損失版。 |
+| [`Generalization/Learning.lean`](../FoML/Generalization/Learning.lean) | 近似 ERM の余剰誤差に対する期待・経験 Rademacher 高確率評価。 |
+| [`Main.lean`](../FoML/Main.lean) | 数式入り docstring と `example` による汎用 bridge、線形予測器、Dudley、ERM・余剰誤差の主要な利用例。 |
 
 旧実装と重複していた `FoML/WIP/RademacherProperty.lean` は削除した。現行の公開経路では [`FoML/Rademacher/Signs.lean`](../FoML/Rademacher/Signs.lean) を参照する。
 また、`ForMathlib/Topology/SeparableSpace.lean` を import するだけだった旧
@@ -1661,11 +1805,13 @@ CRLF または混在改行も LF へ正規化済みである。
 
 ## 11. 検証状態
 
-2026-07-24 時点で、Phase 9 のモジュール階層整理まで含む全体 `lake build` は
-成功している。`FoML` 直下は `Defs.lean` と `Main.lean` の二つである。
+2026-07-24 時点で、Phase 12 の損失・ERM・余剰誤差評価まで含む全体
+`lake build` は成功している。`FoML` 直下は `Defs.lean` と `Main.lean` の
+二つである。
 `import FoML.Main` から、
 `MeasureTheory` 名前空間の測度 bridge、信頼半径、新しい汎化 bridge、
 `denseRestriction`、reindex API、両線形クラスの E2E 評価、
-`dudleyEntropyEstimate` と Dudley の信頼度形式を参照できる。`FoML` 以下に
+`dudleyEntropyEstimate`、Dudley の信頼度形式、ERM oracle inequality、
+余剰誤差 tail、有限クラス contraction を参照できる。`FoML` 以下に
 `sorry` または `admit` はない。文書中の高確率評価はすべて悪い事象の確率に
 対する上界として記している。
