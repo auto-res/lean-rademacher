@@ -12,6 +12,49 @@ variable (d n : ℕ) (Y : Fin n → EuclideanSpace ℝ (Fin d)) (σ : Signs n)
 
 local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
 
+/-- Linear prediction with both the weight and input restricted to closed Euclidean balls. -/
+noncomputable def linearPredictorL2
+    {d : ℕ} {W X : ℝ}
+    (w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W)
+    (x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) : ℝ :=
+  ⟪(w : EuclideanSpace ℝ (Fin d)), (x : EuclideanSpace ℝ (Fin d))⟫
+
+lemma continuous_linearPredictorL2_weight
+    {d : ℕ} {W X : ℝ}
+    (x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) :
+    Continuous fun w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W ↦
+      linearPredictorL2 w x := by
+  unfold linearPredictorL2
+  fun_prop
+
+lemma continuous_linearPredictorL2_input
+    {d : ℕ} {W X : ℝ}
+    (w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :
+    Continuous fun x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X ↦
+      linearPredictorL2 w x := by
+  unfold linearPredictorL2
+  fun_prop
+
+/-- Pointwise boundedness needed by the generalization theorem. -/
+lemma abs_linearPredictorL2_le
+    {d : ℕ} {W X : ℝ} (hW : 0 ≤ W)
+    (w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W)
+    (x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) :
+    |linearPredictorL2 w x| ≤ X * W := by
+  calc
+    |linearPredictorL2 w x|
+        ≤ ‖(w : EuclideanSpace ℝ (Fin d))‖ *
+            ‖(x : EuclideanSpace ℝ (Fin d))‖ := by
+          exact abs_real_inner_le_norm
+            (w : EuclideanSpace ℝ (Fin d)) (x : EuclideanSpace ℝ (Fin d))
+    _ ≤ W * X := by
+      apply mul_le_mul
+      · exact mem_closedBall_zero_iff.mp w.property
+      · exact mem_closedBall_zero_iff.mp x.property
+      · exact norm_nonneg (x : EuclideanSpace ℝ (Fin d))
+      · exact hW
+    _ = X * W := mul_comm W X
+
 theorem weighted_sum_norm_squared_expansion:
     ‖∑ k : Fin n, (σ k : ℝ) • Y k‖ ^ 2 = ∑ k : Fin n, ∑ l : Fin n, ⟪(σ k : ℝ) • Y k, (σ l : ℝ) • Y l⟫ := by
   let g := fun l ↦ (σ l : ℝ) • Y l
@@ -341,3 +384,26 @@ theorem linear_predictor_l2_bound'
       rw [hn]
       simp
   _ = X * W / √(n : ℝ) := by ring
+
+/--
+Empirical Rademacher-complexity bound for the full class of `ℓ₂`-bounded
+linear predictors on an `ℓ₂`-bounded input space.
+-/
+theorem linear_predictor_l2_empirical_bound
+    (d n : ℕ) (W X : ℝ) (hX : 0 ≤ X) (hW : 0 ≤ W)
+    (S : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) :
+    empiricalRademacherComplexity n
+        (linearPredictorL2 :
+          Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ) S
+      ≤ X * W / Real.sqrt (n : ℝ) := by
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :=
+    (Metric.nonempty_closedBall.mpr hW).to_subtype
+  change empiricalRademacherComplexity n
+    (fun (w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W)
+        (x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) ↦
+      ⟪(w : EuclideanSpace ℝ (Fin d)), (x : EuclideanSpace ℝ (Fin d))⟫) S
+      ≤ X * W / Real.sqrt (n : ℝ)
+  rw [empiricalRademacherComplexity_comp]
+  exact linear_predictor_l2_bound'
+    (d := d) (n := n) (W := W) (X := X) hX hW S id

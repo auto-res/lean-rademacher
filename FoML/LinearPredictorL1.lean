@@ -23,6 +23,75 @@ def L1Ball (W : ℝ) : Type :=
 def LinftyBall (X : ℝ) : Type :=
   { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ X }
 
+noncomputable instance {d : ℕ} {W : ℝ} : MetricSpace (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (MetricSpace { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+noncomputable instance {d : ℕ} {Xinf : ℝ} : MetricSpace (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (MetricSpace
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+instance {d : ℕ} {W : ℝ} : MeasurableSpace (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (MeasurableSpace { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+instance {d : ℕ} {Xinf : ℝ} : MeasurableSpace (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (MeasurableSpace
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+instance {d : ℕ} {W : ℝ} : BorelSpace (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (BorelSpace { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+instance {d : ℕ} {Xinf : ℝ} : BorelSpace (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (BorelSpace
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+instance {d : ℕ} {W : ℝ} : SecondCountableTopology (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (SecondCountableTopology
+      { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+instance {d : ℕ} {Xinf : ℝ} : SecondCountableTopology (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (SecondCountableTopology
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+lemma nonempty_L1Ball {d : ℕ} {W : ℝ} (hW : 0 ≤ W) :
+    Nonempty (L1Ball (d := d) W) :=
+  ⟨⟨0, by simpa [l1Norm] using hW⟩⟩
+
+lemma nonempty_LinftyBall {d : ℕ} {Xinf : ℝ} (hX : 0 ≤ Xinf) :
+    Nonempty (LinftyBall (d := d) Xinf) :=
+  ⟨⟨0, fun j ↦ by simpa using hX⟩⟩
+
+/-- Linear prediction on an `ℓ₁` weight ball and coordinatewise bounded input space. -/
+noncomputable def linearPredictorL1
+    {d : ℕ} {Xinf W : ℝ}
+    (w : L1Ball (d := d) W) (x : LinftyBall (d := d) Xinf) : ℝ :=
+  ∑ j : Fin d, w.1 j * x.1 j
+
+lemma continuous_linearPredictorL1_weight
+    {d : ℕ} {Xinf W : ℝ} (x : LinftyBall (d := d) Xinf) :
+    Continuous fun w : L1Ball (d := d) W ↦ linearPredictorL1 w x := by
+  unfold linearPredictorL1
+  change Continuous fun w :
+    { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W } ↦
+      ∑ j : Fin d, w.1 j * x.1 j
+  fun_prop
+
+lemma continuous_linearPredictorL1_input
+    {d : ℕ} {Xinf W : ℝ} (w : L1Ball (d := d) W) :
+    Continuous fun x : LinftyBall (d := d) Xinf ↦ linearPredictorL1 w x := by
+  unfold linearPredictorL1
+  change Continuous fun x :
+    { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf } ↦
+      ∑ j : Fin d, w.1 j * x.1 j
+  fun_prop
+
 -- sign as real
 noncomputable def boolSign (b : Bool) : ℝ := if b then (1:ℝ) else (-1:ℝ)
 
@@ -73,6 +142,19 @@ lemma abs_sum_mul_le_l1_mul {w z : EuclideanSpace ℝ (Fin d)} {M : ℝ}
     _ ≤ ∑ j : Fin d, |w j| * M := h2
     _ = (∑ j : Fin d, |w j|) * M := h3
     _ = (l1Norm (d := d) w) * M := rfl
+
+/-- Pointwise boundedness needed by the generalization theorem. -/
+lemma abs_linearPredictorL1_le
+    {d : ℕ} {Xinf W : ℝ} (hX : 0 ≤ Xinf)
+    (w : L1Ball (d := d) W) (x : LinftyBall (d := d) Xinf) :
+    |linearPredictorL1 w x| ≤ Xinf * W := by
+  calc
+    |linearPredictorL1 w x|
+        ≤ l1Norm (d := d) w.1 * Xinf := by
+          exact abs_sum_mul_le_l1_mul
+            (w := w.1) (z := x.1) x.property
+    _ ≤ W * Xinf := mul_le_mul_of_nonneg_right w.property hX
+    _ = Xinf * W := mul_comm W Xinf
 
 /-
 Main theorem: Lasso / ℓ1 bound
@@ -356,3 +438,38 @@ theorem linear_predictor_l1_bound'
       exact mul_le_mul_of_nonneg_left hcoord hW
     _ = (Xinf * W / Real.sqrt (n : ℝ)) * Real.sqrt (2 * Real.log (2 * d)) := by
       ring
+
+/--
+Empirical Rademacher-complexity bound for the full class of `ℓ₁`-bounded
+linear predictors on a coordinatewise bounded input space.
+-/
+theorem linear_predictor_l1_empirical_bound
+    (d n : ℕ) (Xinf W : ℝ) (hX : 0 ≤ Xinf) (hW : 0 ≤ W)
+    (d_pos : 0 < d) (n_pos : 0 < n)
+    (S : Fin n → LinftyBall (d := d) Xinf) :
+    empiricalRademacherComplexity n
+        (linearPredictorL1 :
+          L1Ball (d := d) W → LinftyBall (d := d) Xinf → ℝ) S
+      ≤ (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) := by
+  letI : Nonempty (L1Ball (d := d) W) :=
+    nonempty_L1Ball hW
+  change empiricalRademacherComplexity n
+    (fun (w : L1Ball (d := d) W) (x : LinftyBall (d := d) Xinf) ↦
+      ∑ j : Fin d, w.1 j * x.1 j) S
+      ≤ (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d))
+  calc
+    _ = empiricalRademacherComplexity n
+        (fun (w : L1Ball (d := d) W) (x : EuclideanSpace ℝ (Fin d)) ↦
+          ∑ j : Fin d, w.1 j * x j) (Subtype.val ∘ S) := by
+          exact empiricalRademacherComplexity_comp
+            (n := n)
+            (g := fun (w : L1Ball (d := d) W) (x : EuclideanSpace ℝ (Fin d)) ↦
+              ∑ j : Fin d, w.1 j * x j)
+            (q := Subtype.val) S
+    _ ≤ (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) :=
+      linear_predictor_l1_bound'
+        (d := d) (n := n) (Xinf := Xinf) (W := W)
+        hX hW d_pos n_pos S id

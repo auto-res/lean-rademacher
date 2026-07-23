@@ -496,10 +496,10 @@ uniform_deviation_tail_bound_separable_of_uniform_dudley
 
 ### Phase 2: 線形予測器
 
-- [ ] $\ell_2$ 線形予測器の部分型版経験評価を追加する。
-- [ ] $\ell_2$ の期待 Rademacher 複雑度評価と高確率汎化評価を追加する。
-- [ ] $\ell_1/\ell_\infty$ 線形予測器の部分型版経験評価を追加する。
-- [ ] $\ell_1/\ell_\infty$ の期待 Rademacher 複雑度評価と高確率汎化評価を追加する。
+- [x] $\ell_2$ 線形予測器の部分型版経験評価を追加する。
+- [x] $\ell_2$ の期待 Rademacher 複雑度評価と高確率汎化評価を追加する。
+- [x] $\ell_1/\ell_\infty$ 線形予測器の部分型版経験評価を追加する。
+- [x] $\ell_1/\ell_\infty$ の期待 Rademacher 複雑度評価と高確率汎化評価を追加する。
 
 ### Phase 3: Dudley の絶対値付き版
 

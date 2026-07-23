@@ -187,6 +187,30 @@ lemma RademacherComplexity_eq
   ext i
   exact empiricalRademacherComplexity_eq n hf (X ∘ i)
 
+/--
+A uniform fixed-sample bound for a separable class lifts to expected
+Rademacher complexity through a countable dense subclass.
+-/
+theorem rademacherComplexity_le_of_empirical_le_separable
+    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (X : Ω → 𝒳)
+    (hf : ∀ i, Measurable (f i ∘ X))
+    {b C : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b)
+    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    (hC : ∀ S : Fin n → 𝒳, empiricalRademacherComplexity n f S ≤ C) :
+    rademacherComplexity n f μ X ≤ C := by
+  let f' := f ∘ denseSeq ι
+  rw [RademacherComplexity_eq n f hf'' μ X]
+  apply rademacherComplexity_le_of_empirical_le_countable
+    (f := f') (μ := μ)
+  · exact fun i ↦ hf (denseSeq ι i)
+  · exact hb
+  · exact fun i x ↦ hf' (denseSeq ι i) x
+  · intro S
+    rw [← empiricalRademacherComplexity_eq n hf'' S]
+    exact hC S
+
 lemma uniformDeviation_eq
     [MeasurableSpace 𝒳]
     [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
@@ -368,6 +392,176 @@ theorem linear_predictor_l1_bound
       (Subtype.val ∘ Y') ≤
       (Xinf * W / Real.sqrt (n : ℝ)) * Real.sqrt (2 * Real.log (2 * d)) := by
   exact linear_predictor_l1_bound' (d := d) (n := n) (Xinf := Xinf) (W := W) hX hW d_pos n_pos Y' w'
+
+/--
+Expected Rademacher-complexity bound for the full `ℓ₂`-bounded linear class
+on an `ℓ₂`-bounded input space.
+-/
+theorem linear_predictor_l2_rademacher_complexity_bound
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (W X : ℝ) (hX : 0 ≤ X) (hW : 0 ≤ W)
+    (Z : Ω → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (hZ : Measurable Z) :
+    rademacherComplexity n
+        (linearPredictorL2 :
+          Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ)
+        μ Z
+      ≤ X * W / Real.sqrt (n : ℝ) := by
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :=
+    (Metric.nonempty_closedBall.mpr hW).to_subtype
+  apply rademacherComplexity_le_of_empirical_le_separable
+    (f := linearPredictorL2) (X := Z)
+  · intro w
+    exact (continuous_linearPredictorL2_input w).measurable.comp hZ
+  · exact mul_nonneg hX hW
+  · exact fun w x ↦ abs_linearPredictorL2_le hW w x
+  · exact continuous_linearPredictorL2_weight
+  · exact linear_predictor_l2_empirical_bound d n W X hX hW
+
+/--
+Expected uniform-deviation bound for the full `ℓ₂`-bounded linear class.
+-/
+theorem linear_predictor_l2_uniform_deviation_expectation_bound
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (W X : ℝ) (hn : 0 < n) (hX : 0 ≤ X) (hW : 0 ≤ W)
+    (Z : Ω → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (hZ : Measurable Z) :
+    μⁿ[fun ω : Fin n → Ω ↦
+      uniformDeviation n
+        (linearPredictorL2 :
+          Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ)
+        μ Z (Z ∘ ω)]
+      ≤ 2 • (X * W / Real.sqrt (n : ℝ)) := by
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :=
+    (Metric.nonempty_closedBall.mpr hW).to_subtype
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) :=
+    (Metric.nonempty_closedBall.mpr hX).to_subtype
+  apply uniform_deviation_expectation_le_of_empirical_le_separable
+    (f := linearPredictorL2) hn
+  · exact fun w ↦ (continuous_linearPredictorL2_input w).measurable
+  · exact hZ
+  · exact mul_nonneg hX hW
+  · exact fun w x ↦ abs_linearPredictorL2_le hW w x
+  · exact continuous_linearPredictorL2_weight
+  · exact linear_predictor_l2_empirical_bound d n W X hX hW
+
+/--
+High-probability uniform-deviation bound for the full `ℓ₂`-bounded linear class.
+-/
+theorem linear_predictor_l2_uniform_deviation_tail_bound
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (W X : ℝ) (_hn : 0 < n) (hX : 0 < X) (hW : 0 < W)
+    (Z : Ω → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (hZ : Measurable Z) {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω ↦
+      2 • (X * W / Real.sqrt (n : ℝ)) + ε ≤
+        uniformDeviation n
+          (linearPredictorL2 :
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+              Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ)
+          μ Z (Z ∘ ω))).toReal
+      ≤ (-ε ^ 2 * n / (2 * (X * W) ^ 2)).exp := by
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :=
+    (Metric.nonempty_closedBall.mpr (le_of_lt hW)).to_subtype
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) :=
+    (Metric.nonempty_closedBall.mpr (le_of_lt hX)).to_subtype
+  apply uniform_deviation_tail_bound_separable_of_empirical_le
+    (f := linearPredictorL2)
+  · exact fun w ↦ (continuous_linearPredictorL2_input w).measurable
+  · exact hZ
+  · exact mul_pos hX hW
+  · exact fun w x ↦ abs_linearPredictorL2_le (le_of_lt hW) w x
+  · exact continuous_linearPredictorL2_weight
+  · exact linear_predictor_l2_empirical_bound
+      d n W X (le_of_lt hX) (le_of_lt hW)
+  · exact hε
+
+/--
+Expected Rademacher-complexity bound for the full `ℓ₁`-bounded linear class
+on a coordinatewise bounded input space.
+-/
+theorem linear_predictor_l1_rademacher_complexity_bound
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (Xinf W : ℝ) (hX : 0 ≤ Xinf) (hW : 0 ≤ W)
+    (d_pos : 0 < d) (n_pos : 0 < n)
+    (Z : Ω → LinftyBall (d := d) Xinf) (hZ : Measurable Z) :
+    rademacherComplexity n
+        (linearPredictorL1 :
+          L1Ball (d := d) W → LinftyBall (d := d) Xinf → ℝ)
+        μ Z
+      ≤ (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) := by
+  letI : Nonempty (L1Ball (d := d) W) := nonempty_L1Ball hW
+  apply rademacherComplexity_le_of_empirical_le_separable
+    (f := linearPredictorL1) (X := Z)
+  · intro w
+    exact (continuous_linearPredictorL1_input w).measurable.comp hZ
+  · exact mul_nonneg hX hW
+  · exact fun w x ↦ abs_linearPredictorL1_le hX w x
+  · exact continuous_linearPredictorL1_weight
+  · exact linear_predictor_l1_empirical_bound
+      d n Xinf W hX hW d_pos n_pos
+
+/--
+Expected uniform-deviation bound for the full `ℓ₁`-bounded linear class.
+-/
+theorem linear_predictor_l1_uniform_deviation_expectation_bound
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (Xinf W : ℝ) (hX : 0 ≤ Xinf) (hW : 0 ≤ W)
+    (d_pos : 0 < d) (n_pos : 0 < n)
+    (Z : Ω → LinftyBall (d := d) Xinf) (hZ : Measurable Z) :
+    μⁿ[fun ω : Fin n → Ω ↦
+      uniformDeviation n
+        (linearPredictorL1 :
+          L1Ball (d := d) W → LinftyBall (d := d) Xinf → ℝ)
+        μ Z (Z ∘ ω)]
+      ≤ 2 • ((Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d))) := by
+  letI : Nonempty (L1Ball (d := d) W) := nonempty_L1Ball hW
+  letI : Nonempty (LinftyBall (d := d) Xinf) := nonempty_LinftyBall hX
+  apply uniform_deviation_expectation_le_of_empirical_le_separable
+    (f := linearPredictorL1) n_pos
+  · exact fun w ↦ (continuous_linearPredictorL1_input w).measurable
+  · exact hZ
+  · exact mul_nonneg hX hW
+  · exact fun w x ↦ abs_linearPredictorL1_le hX w x
+  · exact continuous_linearPredictorL1_weight
+  · exact linear_predictor_l1_empirical_bound
+      d n Xinf W hX hW d_pos n_pos
+
+/--
+High-probability uniform-deviation bound for the full `ℓ₁`-bounded linear class.
+-/
+theorem linear_predictor_l1_uniform_deviation_tail_bound
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (Xinf W : ℝ) (hX : 0 < Xinf) (hW : 0 < W)
+    (d_pos : 0 < d) (n_pos : 0 < n)
+    (Z : Ω → LinftyBall (d := d) Xinf) (hZ : Measurable Z)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω ↦
+      2 • ((Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d))) + ε ≤
+        uniformDeviation n
+          (linearPredictorL1 :
+            L1Ball (d := d) W → LinftyBall (d := d) Xinf → ℝ)
+          μ Z (Z ∘ ω))).toReal
+      ≤ (-ε ^ 2 * n / (2 * (Xinf * W) ^ 2)).exp := by
+  letI : Nonempty (L1Ball (d := d) W) :=
+    nonempty_L1Ball (le_of_lt hW)
+  letI : Nonempty (LinftyBall (d := d) Xinf) :=
+    nonempty_LinftyBall (le_of_lt hX)
+  apply uniform_deviation_tail_bound_separable_of_empirical_le
+    (f := linearPredictorL1)
+  · exact fun w ↦ (continuous_linearPredictorL1_input w).measurable
+  · exact hZ
+  · exact mul_pos hX hW
+  · exact fun w x ↦ abs_linearPredictorL1_le (le_of_lt hX) w x
+  · exact continuous_linearPredictorL1_weight
+  · exact linear_predictor_l1_empirical_bound
+      d n Xinf W (le_of_lt hX) (le_of_lt hW) d_pos n_pos
+  · exact hε
 
 /-- Dudley entropy integral upper bound for empirical Rademacher complexity. -/
 theorem dudley_entropy_integral_bound
