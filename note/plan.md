@@ -1151,20 +1151,20 @@ Hilbert 空間版を実装し、その後で kernel 表記を与える。
 
 ### 16.3 設計上の注意
 
-- [ ] 最初の定理は「任意の PDS kernel から RKHS を構成する」定理ではなく、
+- [x] 最初の定理は「任意の PDS kernel から RKHS を構成する」定理ではなく、
   与えられた特徴写像から誘導される kernel を扱う。
-- [ ] PDS 性は有限 Gram 行列の二次形式が非負である形で別補題にする。
-- [ ] 完備性が証明に不要な固定標本評価では `InnerProductSpace ℝ H` まで仮定を弱め、
+- [x] PDS 性は有限 Gram 行列の二次形式が非負である形で別補題にする。
+- [x] 完備性が証明に不要な固定標本評価では `InnerProductSpace ℝ H` まで仮定を弱め、
   RKHS と呼ぶ公開 wrapper では `CompleteSpace H` を仮定する。
-- [ ] 可分クラスの汎化評価へ進む定理だけに `SeparableSpace H` を要求する。
-- [ ] 既存の $\ell_2$ 線形予測器を一般 Hilbert 空間定理の有限次元系として整理する。
+- [x] 可分クラスの汎化評価へ進む定理だけに `SeparableSpace H` を要求する。
+- [x] 既存の $\ell_2$ 線形予測器を一般 Hilbert 空間定理の有限次元系として整理する。
 
 ### 16.4 完了条件
 
-- [ ] kernel trace 版と $r\Lambda/\sqrt n$ 版がある。
-- [ ] 固定標本、期待量、標本依存 tail、決定論的 tail が接続されている。
-- [ ] Mohri Theorem 6.12 の各仮定と Lean の仮定の対応が docstring に記載されている。
-- [ ] `Main.lean` から少なくとも二つの RKHS E2E 例を確認できる。
+- [x] kernel trace 版と $r\Lambda/\sqrt n$ 版がある。
+- [x] 固定標本、期待量、標本依存 tail、決定論的 tail が接続されている。
+- [x] Mohri Theorem 6.12 の各仮定と Lean の仮定の対応が docstring に記載されている。
+- [x] `Main.lean` から少なくとも二つの RKHS E2E 例を確認できる。
 
 ## 17. Phase 11: 具体的被覆数による Dudley 評価
 
@@ -1347,11 +1347,12 @@ $$
 - [x] 標本依存学習則 `A : (Fin n → 𝒵) → H` と点ごとの
   `IsApproxERM η ℓ S (A S)` を受け取る定理を追加する。
 - [x] 信頼度 $\delta$ 形式を追加する。
-- [ ] RKHS と Lipschitz loss を contraction で接続した E2E 例を追加する。
+- [x] RKHS と Lipschitz loss を contraction で接続した E2E 例を追加する。
 - [x] `Main.lean` に ERM の主要な利用例を掲載する。
 
-RKHS との E2E 接続は Phase 10 の特徴写像・kernel trace 定理を実装した時点で
-追加する。
+Phase 10 で特徴写像・kernel trace 定理を実装し、有限個の RKHS 重みについて
+Lipschitz loss、近似 ERM、余剰誤差を接続した。一般の Hilbert 球全体に対する
+loss contraction は、非有限可分クラス向け contraction の拡張として分ける。
 
 ### 18.5 実装順
 

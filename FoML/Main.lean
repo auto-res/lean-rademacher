@@ -1,9 +1,11 @@
 import FoML.Generalization.LinearPredictorL2
 import FoML.Generalization.LinearPredictorL1
+import FoML.Generalization.RKHS
 import FoML.Generalization.Dudley
 import FoML.Generalization.FiniteClass
 import FoML.Generalization.LipschitzParameter
 import FoML.Generalization.Learning
+import FoML.Generalization.RKHSLearning
 import FoML.Rademacher.Reindex
 
 /-!
@@ -215,6 +217,93 @@ example
     d Xinf W hX hW hd hn Z hZ hδ hδ_one
 
 /-!
+## Feature-map RKHS predictors
+
+Let $\Phi:\mathcal X\to\mathcal H$ map into a real Hilbert space and define
+
+$$
+K(x,y)=\langle\Phi(x),\Phi(y)\rangle,
+\qquad
+f_w(x)=\langle w,\Phi(x)\rangle,
+\qquad
+\lVert w\rVert\le\Lambda.
+$$
+
+The sample-dependent form of Mohri, Rostamizadeh, and Talwalkar,
+Theorem 6.12 retains the observed kernel trace:
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n
+  \ge \frac{2\Lambda}{n}
+      \sqrt{\sum_k K(X_k,X_k)}
+    +3r\Lambda\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}\le\delta.
+$$
+-/
+
+/-- Main RKHS example retaining the observed kernel trace. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳]
+    [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
+    [MeasurableSpace H] [BorelSpace H] [SeparableSpace H]
+    [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    (Φ : 𝒳 → H) (hΦ : Measurable Φ)
+    (Λ r : ℝ) (hΛ : 0 < Λ) (hr : 0 < r)
+    (hdiag : ∀ x, kernelOfFeatureMap Φ x x ≤ r ^ 2)
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * (Λ * (n : ℝ)⁻¹ * Real.sqrt (kernelTrace Φ (X ∘ S))) +
+          3 * ((r * Λ) *
+            Real.sqrt (2 * Real.log (2 / δ) / n)) ≤
+        uniformDeviation n
+          (rkhsPredictor Φ :
+            Metric.closedBall (0 : H) Λ → 𝒳 → ℝ)
+          μ X (X ∘ S)}).toReal ≤ δ := by
+  exact rkhs_uniformDeviation_tail_bound_kernelTrace_delta
+    hn Φ hΦ Λ r hΛ hr hdiag X hX hδ hδ_one
+
+/-!
+Replacing every diagonal value by $K(x,x)\le r^2$ gives the deterministic
+endpoint
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n
+  \ge \frac{2r\Lambda}{\sqrt n}
+    +r\Lambda\sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}\le\delta.
+$$
+
+Completeness records the Hilbert-space interpretation; separability is used
+only when the bounded weight ball is reduced to a countable dense subclass.
+-/
+
+/-- Main RKHS example using only a uniform kernel-diagonal bound. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳]
+    [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
+    [MeasurableSpace H] [BorelSpace H] [SeparableSpace H]
+    [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    (Φ : 𝒳 → H) (hΦ : Measurable Φ)
+    (Λ r : ℝ) (hΛ : 0 < Λ) (hr : 0 < r)
+    (hdiag : ∀ x, kernelOfFeatureMap Φ x x ≤ r ^ 2)
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * (r * Λ / Real.sqrt (n : ℝ)) +
+          (r * Λ) * Real.sqrt (2 * Real.log (1 / δ) / n) ≤
+        uniformDeviation n
+          (rkhsPredictor Φ :
+            Metric.closedBall (0 : H) Λ → 𝒳 → ℝ)
+          μ X (X ∘ S)}).toReal ≤ δ := by
+  exact rkhs_uniformDeviation_tail_bound_delta
+    hn Φ hΦ Λ r hΛ hr hdiag X hX hδ hδ_one
+
+/-!
 ## Dudley entropy integral
 
 For
@@ -383,6 +472,72 @@ example
   exact approxERM_excessRisk_tail_bound_separable_of_sample_empirical_le_delta
     (μ := μ) hn ℓ hℓ_meas X hX C hb hℓ_bound hℓ_cont
     A hA hC hstar hδ hδ_one
+
+/-!
+For a finite collection of weights in an RKHS ball, the finite-class
+contraction theorem also connects a centered Lipschitz loss to the kernel
+trace estimate.  If the loss vanishes at zero, then
+
+$$
+\widehat{\mathfrak R}_n(\ell\circ F;S)
+\le
+2L\,\frac{\Lambda}{n}
+\sqrt{\sum_k K(x_k,x_k)}
+$$
+
+Combining this with the approximate-ERM oracle inequality yields an excess
+risk statement.  The finiteness assumption here belongs to the currently
+proved contraction theorem; the RKHS trace estimate itself applies to the
+entire Hilbert ball.
+-/
+
+/-- RKHS, Lipschitz-loss, and approximate-ERM end-to-end example. -/
+example
+    {𝒴 G : Type*}
+    [MeasurableSpace (𝒳 × 𝒴)] [Nonempty (𝒳 × 𝒴)]
+    [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
+    [Fintype G] [Nonempty G] [TopologicalSpace G] [DiscreteTopology G]
+    [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    (Φ : 𝒳 → H)
+    (Λ r : ℝ) (hΛ : 0 < Λ) (hr : 0 < r)
+    (hdiag : ∀ x, kernelOfFeatureMap Φ x x ≤ r ^ 2)
+    (weights : G → Metric.closedBall (0 : H) Λ)
+    (loss : ℝ → 𝒴 → ℝ)
+    {L b η : ℝ} (hL : 0 ≤ L)
+    (hloss_zero : ∀ y, loss 0 y = 0)
+    (hloss_lip : ∀ y u v, |loss u y - loss v y| ≤ L * |u - v|)
+    (hclass_meas :
+      ∀ g, Measurable
+        (supervisedLossClass
+          (fun g x ↦ rkhsPredictor Φ (weights g) x) loss g))
+    (hb : 0 < b)
+    (hclass_bound :
+      ∀ g z,
+        |supervisedLossClass
+          (fun g x ↦ rkhsPredictor Φ (weights g) x) loss g z| ≤ b)
+    (Z : Ω → 𝒳 × 𝒴) (hZ : Measurable Z)
+    (A : (Fin n → 𝒳 × 𝒴) → G)
+    (hA : ∀ S,
+      IsApproxERM η n
+        (supervisedLossClass
+          (fun g x ↦ rkhsPredictor Φ (weights g) x) loss)
+        S (A S))
+    (gstar : G) {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      4 *
+          (2 * L *
+            (Λ * (n : ℝ)⁻¹ *
+              Real.sqrt
+                (kernelTrace Φ (fun k ↦ (Z (S k)).1)))) +
+          6 * sampleConfidenceRadius b δ n + η ≤
+        excessRisk
+          (supervisedLossClass
+            (fun g x ↦ rkhsPredictor Φ (weights g) x) loss)
+          μ Z (A (Z ∘ S)) gstar}).toReal ≤ δ := by
+  exact finite_rkhs_approxERM_excessRisk_tail_bound_delta
+    hn Φ Λ r hΛ hr hdiag weights loss hL hloss_zero hloss_lip
+    hclass_meas hb hclass_bound Z hZ A hA gstar hδ hδ_one
 
 /-!
 For a finite hypothesis type, a centered $L$-Lipschitz loss satisfies the

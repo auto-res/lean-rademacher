@@ -1,13 +1,13 @@
 # `lean-rademacher` の実装概要
 
 - 最終確認日: 2026-07-24
-- 基準ブランチ: `ss`（Phase 11 完了時点）
+- 基準ブランチ: `ss`（Phase 10 完了時点）
 
 ## 0. 対象と現在の到達点
 
 この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。抽象的な汎化定理は [`FoML/Generalization/Countable.lean`](../FoML/Generalization/Countable.lean)、[`FoML/Generalization/Separable.lean`](../FoML/Generalization/Separable.lean)、[`FoML/Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) に分割されている。[`FoML/Main.lean`](../FoML/Main.lean) は主要な利用例を繰り返す入口、[`FoML.lean`](../FoML.lean) はライブラリ全体の入口である。
 
-現在の実装は、次の八つの経路を一つの公開 API として接続している。
+現在の実装は、次の九つの経路を一つの公開 API として接続している。
 
 1. 一様偏差の期待値を symmetrization により期待 Rademacher 複雑度で評価する。
 2. 一様偏差の有界差分性と McDiarmid の不等式から高確率汎化評価を得る。
@@ -19,8 +19,10 @@
    Rademacher 複雑度から余剰誤差の高確率評価を得る。
 8. 有限クラスまたは一次元 Lipschitz パラメータ族の被覆数を具体的に評価し、
    Dudley の entropy integral から被覆数を含まない高確率汎化評価を得る。
+9. Hilbert 空間の符号和評価を特徴写像 kernel の trace 評価へ書き換え、
+   RKHS 予測器の期待量・高確率汎化評価、さらに有限モデルの余剰誤差評価を得る。
 
-とくに、以前分離していた次の二点は接続済みである。
+とくに、以前分離していた次の事項は接続済みである。
 
 - $\ell_2$ および $\ell_1/\ell_\infty$ 線形予測器について、経験評価から期待 Rademacher 複雑度、期待一様偏差、高確率汎化評価までの専用定理がある。
 - 両線形クラスについて、一様半径による決定論的複雑度項だけでなく、観測標本の二乗ノルムまたは座標ごとの二乗和を残す標本依存 E2E 評価がある。
@@ -34,6 +36,11 @@
   パラメータ族では
   $N(F,\varepsilon)\le\lceil2WL/\varepsilon\rceil+1$ を証明し、両者を
   proof term の現れない Dudley E2E 評価へ接続している。
+- 特徴写像 $\Phi$ が誘導する kernel について Mohri, Theorem 6.12 の
+  kernel trace 版と $r\Lambda/\sqrt n$ 版があり、標本依存・決定論的な
+  二種類の信頼度形式まで接続している。
+- 有限個の RKHS 重みについては、定数 $2L$ の絶対値付き contraction と
+  近似 ERM oracle inequality を合成した余剰誤差 E2E 評価がある。
 
 概念上の依存関係は次のようにまとめられる。
 
@@ -56,11 +63,15 @@ flowchart LR
     confidence["Generalization/<br/>Confidence"]
     linearL2["Model/<br/>LinearPredictorL2"]
     linearL1["Model/<br/>LinearPredictorL1"]
+    hilbert["Model/<br/>HilbertPredictor"]
+    rkhs["Model/<br/>RKHS"]
     dudley["Entropy/<br/>Dudley"]
     finiteEntropy["Entropy/<br/>FiniteClass"]
     lipschitzEntropy["Entropy/<br/>LipschitzParameter"]
     l2Gen["Generalization/<br/>LinearPredictorL2"]
     l1Gen["Generalization/<br/>LinearPredictorL1"]
+    rkhsGen["Generalization/<br/>RKHS"]
+    rkhsLearning["Generalization/<br/>RKHSLearning"]
     dudleyGen["Generalization/<br/>Dudley"]
     finiteGen["Generalization/<br/>FiniteClass"]
     lipschitzGen["Generalization/<br/>LipschitzParameter"]
@@ -90,10 +101,14 @@ flowchart LR
     confidenceCalc --> confidence
     separableGen --> confidence
 
+    hilbert --> linearL2
     linearL2 --> l2Gen
     confidence --> l2Gen
     linearL1 --> l1Gen
     confidence --> l1Gen
+    hilbert --> rkhs
+    rkhs --> rkhsGen
+    confidence --> rkhsGen
     dudley --> dudleyGen
     confidence --> dudleyGen
     dudley --> finiteEntropy
@@ -110,9 +125,14 @@ flowchart LR
     erm --> learningGen
     contraction --> learningGen
     confidence --> learningGen
+    rkhsGen --> rkhsLearning
+    learningGen --> rkhsLearning
+    reindex --> rkhsLearning
 
     l2Gen --> main
     l1Gen --> main
+    rkhsGen --> main
+    rkhsLearning --> main
     dudleyGen --> main
     finiteGen --> main
     lipschitzGen --> main
@@ -826,7 +846,7 @@ $$
 
 を得る。これは線形予測器の標本幾何による評価と Dudley entropy integral に共通する接続である。
 
-## 5. $\ell_2$ 制約付き線形予測器
+## 5. Hilbert 空間と $\ell_2$ 制約付き線形予測器
 
 ### 5.1 関数クラス
 
@@ -896,11 +916,11 @@ $$
 \frac{XW}{\sqrt n}
 $$
 
-を示す。証明では次を用いる。
-
-- `weighted_sum_norm_squared_expansion` による符号付き和のノルム二乗展開。
-- `rademacher_orthogonality` による非対角交差項の消去。
-- Cauchy--Schwarz による符号平均の二乗平均評価。
+を示す。公開定理は
+[`FoML/Model/HilbertPredictor.lean`](../FoML/Model/HilbertPredictor.lean) の
+次元に依存しない定理の有限次元系として実装されている。一般 Hilbert 空間で
+符号付き和のノルム二乗を展開し、`rademacher_orthogonality` で非対角交差項を
+消去し、Cauchy--Schwarz で符号平均を二乗平均により評価する。
 
 `linear_predictor_l2_bound` は、任意の添字型から閉球内の重みを与える旧来の固定標本 wrapper である。関数クラス全体を後続の接続定理へ使う場合は `linear_predictor_l2_empirical_bound` が直接対応する。
 
@@ -957,6 +977,117 @@ $$
 $$
 
 を与える。前者の複雑度項は全標本で同じだが、後者は観測された入力ノルムに適応する。
+
+### 5.4 特徴写像 kernel と RKHS 評価
+
+[`FoML/Model/HilbertPredictor.lean`](../FoML/Model/HilbertPredictor.lean) は
+実内積空間 $\mathcal H$ 上で、型だけでなく項まで
+
+```lean
+noncomputable def hilbertPredictor
+    {Λ : ℝ}
+    (w : Metric.closedBall (0 : H) Λ) (x : H) : ℝ :=
+  ⟪(w : H), x⟫
+```
+
+を定義する。`hilbertPredictor_empiricalRademacherComplexity_le` は完備性や
+有限次元性を仮定せず、
+
+$$
+\widehat{\mathfrak R}_n
+\left(\{x\mapsto\langle w,x\rangle:\|w\|\le\Lambda\};S\right)
+\le
+\frac{\Lambda}{n}\sqrt{\sum_k\|S_k\|^2}
+$$
+
+を示す。
+
+[`FoML/Model/RKHS.lean`](../FoML/Model/RKHS.lean) は特徴写像
+$\Phi:\mathcal X\to\mathcal H$ に対して
+
+```lean
+noncomputable def kernelOfFeatureMap
+    (Φ : 𝒳 → H) (x y : 𝒳) : ℝ :=
+  ⟪Φ x, Φ y⟫
+
+noncomputable def kernelTrace
+    (Φ : 𝒳 → H) (S : Fin n → 𝒳) : ℝ :=
+  ∑ k : Fin n, kernelOfFeatureMap Φ (S k) (S k)
+
+noncomputable def rkhsPredictor
+    (Φ : 𝒳 → H) {Λ : ℝ}
+    (w : Metric.closedBall (0 : H) Λ) (x : 𝒳) : ℝ :=
+  hilbertPredictor w (Φ x)
+```
+
+と定義する。`kernelOfFeatureMap_positiveSemidefinite` は任意の有限点列
+$x_i$ と係数 $a_i$ に対し
+
+$$
+0\le\sum_{i,j}a_i a_jK(x_i,x_j)
+=\left\|\sum_i a_i\Phi(x_i)\right\|^2
+$$
+
+を示す。`kernelOfFeatureMap_self` により $K(x,x)=\|\Phi(x)\|^2$ である。
+
+Mohri, Rostamizadeh, Talwalkar, Theorem 6.12 に対応する固定標本評価は
+
+$$
+\widehat{\mathfrak R}_n
+\le
+\frac{\Lambda}{n}
+\sqrt{\operatorname{tr}K_S},
+\qquad
+\operatorname{tr}K_S=\sum_kK(S_k,S_k)
+$$
+
+である。さらに $K(x,x)\le r^2$ なら
+
+$$
+\widehat{\mathfrak R}_n\le\frac{r\Lambda}{\sqrt n}
+$$
+
+を得る。ここで `CompleteSpace H` は特徴空間を Hilbert 空間として解釈する
+公開 wrapper にだけ現れ、符号和の基礎評価には不要である。
+
+[`FoML/Generalization/RKHS.lean`](../FoML/Generalization/RKHS.lean) は
+特徴写像の可測性と `SeparableSpace H` を、可分クラス bridge を使う段階でのみ
+仮定する。公開 endpoint は期待 Rademacher 複雑度、期待一様偏差、および
+
+$$
+\Pr\left\{
+\operatorname{UD}_n
+\ge
+\frac{2\Lambda}{n}\sqrt{\operatorname{tr}K_S}
++3r\Lambda\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}\le\delta
+$$
+
+という標本依存評価と、
+
+$$
+\Pr\left\{
+\operatorname{UD}_n
+\ge
+\frac{2r\Lambda}{\sqrt n}
++r\Lambda\sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}\le\delta
+$$
+
+という決定論的評価である。
+
+有限個の RKHS 重みについては
+[`FoML/Generalization/RKHSLearning.lean`](../FoML/Generalization/RKHSLearning.lean)
+が、零点で消える $L$-Lipschitz loss の contraction、kernel trace 評価、
+近似 ERM oracle inequality を合成する。この余剰誤差 E2E 評価の複雑度項は
+
+$$
+4\left(
+2L\,\frac{\Lambda}{n}\sqrt{\operatorname{tr}K_S}
+\right)
+$$
+
+である。係数 $2L$ は絶対値付き経験 Rademacher 複雑度の contraction に由来する。
 
 ## 6. $\ell_1/\ell_\infty$ 制約付き線形予測器
 
@@ -1545,7 +1676,21 @@ noncomputable def lipschitzParameterDudleyEstimate
 | 決定論的 E2E、`δ` 形式 | `linear_predictor_l2_uniform_deviation_tail_bound_delta` | `linear_predictor_l1_uniform_deviation_tail_bound_delta` |
 | 標本依存 E2E、`δ` 形式 | `linear_predictor_l2_uniform_deviation_tail_bound_of_sample_delta` | `linear_predictor_l1_uniform_deviation_tail_bound_of_sample_delta` |
 
-### 8.5 Dudley
+### 8.5 RKHS
+
+| 分類 | 宣言 |
+|---|---|
+| 一般 Hilbert 空間の固定標本評価 | `hilbertPredictor_empiricalRademacherComplexity_le` |
+| 特徴写像 kernel の PDS 性 | `kernelOfFeatureMap_positiveSemidefinite` |
+| kernel trace 版 | `rkhs_empiricalRademacherComplexity_le_kernelTrace` |
+| 一様対角上界版 | `rkhs_empiricalRademacherComplexity_le` |
+| 期待 Rademacher 複雑度 | `rkhs_rademacherComplexity_le` |
+| 期待一様偏差 | `rkhs_uniformDeviation_expectation_le` |
+| 決定論的 E2E、`δ` 形式 | `rkhs_uniformDeviation_tail_bound_delta` |
+| kernel trace を残す E2E、`δ` 形式 | `rkhs_uniformDeviation_tail_bound_kernelTrace_delta` |
+| 有限 RKHS モデル、Lipschitz loss、近似 ERM | `finite_rkhs_approxERM_excessRisk_tail_bound_delta` |
+
+### 8.6 Dudley
 
 | 分類 | 宣言 |
 |---|---|
@@ -1563,7 +1708,7 @@ noncomputable def lipschitzParameterDudleyEstimate
 | 一次元 Lipschitz 族の固定標本評価 | `empiricalRademacherComplexity_le_lipschitzParameterDudleyEstimate` |
 | 一次元 Lipschitz 族の明示的 tail | `uniform_deviation_tail_bound_lipschitzParameter_dudley_delta` |
 
-### 8.6 損失、ERM、余剰誤差
+### 8.7 損失、ERM、余剰誤差
 
 [`FoML/Learning/Defs.lean`](../FoML/Learning/Defs.lean) は、型だけでなく項まで
 次を定義する。
@@ -1663,6 +1808,7 @@ $$
 | 信頼度形式 | `approxERM_excessRisk_tail_bound_separable_of_rademacher_le_delta`, `approxERM_excessRisk_tail_bound_separable_of_sample_empirical_le_delta` |
 | 片側 contraction | `empiricalRademacherComplexity_without_abs_contraction_finite` |
 | 絶対値付き contraction | `empiricalRademacherComplexity_contraction_finite` |
+| 有限 RKHS モデルの余剰誤差 E2E | `finite_rkhs_approxERM_excessRisk_tail_bound_delta` |
 | 中心化 supervised loss | `empiricalRademacherComplexity_centered_supervisedLossClass_le` |
 
 ## 9. 現在の接続関係と注意点
@@ -1810,6 +1956,10 @@ $$
 
 非可算クラスの上限を直接可測とするのではなく、点ごとのパラメータ連続性を使って稠密可算部分クラスへ還元する。期待 Rademacher 複雑度の評価には `SeparableSpace`、一様偏差の等式と tail 評価にはさらに `FirstCountableTopology` が現れる。
 
+RKHS 経路でも `SeparableSpace H` は汎化 bridge にのみ必要であり、固定標本の
+Hilbert 空間評価や kernel trace 評価には要求しない。特徴写像の可測性は、各
+予測器 $x\mapsto\langle w,\Phi(x)\rangle$ の可測性を供給する。
+
 ### 9.5 $n=0$ と正値条件
 
 Lean の実数では $0^{-1}=0$ なので、中心定義は $n=0$ でも総関数である。一方、正規化、平方根、Dudley integral を本質的に使う応用 API では $0<n$ を明示する。tail 定理の一部は $n=0$ を確率が $1$ 以下という自明な場合として内部処理する。
@@ -1826,10 +1976,12 @@ Lean の実数では $0^{-1}=0$ なので、中心定義は $n=0$ でも総関�
 
 次は現行の主要 API には含まれていない。
 
-- RKHS の具体的な複雑度評価。
+- 任意に与えられた PDS kernel から RKHS と標準特徴写像を構成する定理。現状は
+  先に特徴写像を与え、そこから誘導される kernel を扱う。
 - 多次元 Lipschitz 関数族やニューラルネットワークに対する具体的な被覆数評価。
 - 一般の非有限可分仮説型に対する contraction inequality。現状の完全な
-  contraction 定理は有限仮説型を扱う。
+  contraction 定理は有限仮説型を扱うため、RKHS と loss の余剰誤差 E2E も
+  有限個の RKHS 重みを選ぶ場合に限る。
 - コンパクト性と連続性から population risk minimizer または ERM の存在を
   導く定理。現在は minimizer を選択せず `IsERM`、`IsApproxERM` という述語で
   受け取る。
@@ -1875,10 +2027,14 @@ $$
 | [`Entropy/Dudley.lean`](../FoML/Entropy/Dudley.lean) | chaining、entropy integral、符号対称化後の全有界性・被覆数比較、絶対値付き Dudley 評価。 |
 | [`Entropy/FiniteClass.lean`](../FoML/Entropy/FiniteClass.lean) | 有限クラスの濃度による明示的 Dudley 評価。 |
 | [`Entropy/LipschitzParameter.lean`](../FoML/Entropy/LipschitzParameter.lean) | 一次元区間の grid、経験距離 Lipschitz bridge、明示的 Dudley 評価。 |
-| [`Model/LinearPredictorL2.lean`](../FoML/Model/LinearPredictorL2.lean) | $\ell_2$ 線形予測器、標本の二乗ノルムを残す経験評価、その一様半径版。 |
+| [`Model/HilbertPredictor.lean`](../FoML/Model/HilbertPredictor.lean) | 一般実内積空間上の線形予測器と次元に依存しない固定標本評価。 |
+| [`Model/RKHS.lean`](../FoML/Model/RKHS.lean) | 特徴写像 kernel、PDS 性、kernel trace、Mohri Theorem 6.12 の二形式。 |
+| [`Model/LinearPredictorL2.lean`](../FoML/Model/LinearPredictorL2.lean) | 一般 Hilbert 空間定理の有限次元系としての $\ell_2$ 線形予測器評価。 |
 | [`Model/LinearPredictorL1.lean`](../FoML/Model/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器、座標ごとの標本二乗和を残す経験評価、その一様半径版。 |
 | [`Generalization/LinearPredictorL2.lean`](../FoML/Generalization/LinearPredictorL2.lean) | $\ell_2$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
 | [`Generalization/LinearPredictorL1.lean`](../FoML/Generalization/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
+| [`Generalization/RKHS.lean`](../FoML/Generalization/RKHS.lean) | RKHS の期待評価、kernel trace を残す標本依存 E2E、一様対角上界による決定論的 E2E。 |
+| [`Generalization/RKHSLearning.lean`](../FoML/Generalization/RKHSLearning.lean) | 有限 RKHS モデルの Lipschitz loss contraction と近似 ERM 余剰誤差 E2E。 |
 | [`Generalization/Dudley.lean`](../FoML/Generalization/Dudley.lean) | `dudleyEntropyEstimate` と、Dudley 評価から期待量・高確率汎化評価への接続。 |
 | [`Generalization/FiniteClass.lean`](../FoML/Generalization/FiniteClass.lean) | 有限クラスの明示的 Dudley 評価を信頼度形式へ接続する E2E 定理。 |
 | [`Generalization/LipschitzParameter.lean`](../FoML/Generalization/LipschitzParameter.lean) | 一次元 Lipschitz パラメータ族の明示的 Dudley E2E 定理。 |
@@ -1886,7 +2042,7 @@ $$
 | [`Learning/ERM.lean`](../FoML/Learning/ERM.lean) | 点ごとの偏差および一様偏差から得る決定論的 ERM oracle inequality。 |
 | [`Learning/Contraction.lean`](../FoML/Learning/Contraction.lean) | 有限仮説型の片側・絶対値付き Lipschitz contraction と中心化損失版。 |
 | [`Generalization/Learning.lean`](../FoML/Generalization/Learning.lean) | 近似 ERM の余剰誤差に対する期待・経験 Rademacher 高確率評価。 |
-| [`Main.lean`](../FoML/Main.lean) | 数式入り docstring と `example` による汎用 bridge、線形予測器、Dudley、ERM・余剰誤差の主要な利用例。 |
+| [`Main.lean`](../FoML/Main.lean) | 数式入り docstring と `example` による汎用 bridge、線形・RKHS 予測器、Dudley、ERM・余剰誤差の主要な利用例。 |
 
 旧実装と重複していた `FoML/WIP/RademacherProperty.lean` は削除した。現行の公開経路では [`FoML/Rademacher/Signs.lean`](../FoML/Rademacher/Signs.lean) を参照する。
 また、`ForMathlib/Topology/SeparableSpace.lean` を import するだけだった旧
@@ -1903,14 +2059,16 @@ CRLF または混在改行も LF へ正規化済みである。
 
 ## 11. 検証状態
 
-2026-07-24 時点で、Phase 11 の具体的被覆数評価まで含む全体
+2026-07-24 時点で、Phase 10 の RKHS 評価まで含む全体
 `lake build` は成功している。`FoML` 直下は `Defs.lean` と `Main.lean` の
 二つである。
 `import FoML.Main` から、
 `MeasureTheory` 名前空間の測度 bridge、信頼半径、新しい汎化 bridge、
 `denseRestriction`、reindex API、両線形クラスの E2E 評価、
+RKHS の kernel trace 版・一様対角上界版 E2E 評価、
 `dudleyEntropyEstimate`、Dudley の信頼度形式、有限クラスおよび一次元
 Lipschitz パラメータ族の被覆数を含まない Dudley E2E 評価、
-ERM oracle inequality、余剰誤差 tail、有限クラス contraction を参照できる。`FoML` 以下に
+ERM oracle inequality、余剰誤差 tail、有限クラス contraction、
+有限 RKHS モデルの Lipschitz loss 余剰誤差 E2E を参照できる。`FoML` 以下に
 `sorry` または `admit` はない。文書中の高確率評価はすべて悪い事象の確率に
 対する上界として記している。

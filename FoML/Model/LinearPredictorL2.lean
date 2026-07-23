@@ -1,4 +1,5 @@
 import Mathlib.Analysis.InnerProductSpace.PiL2
+import FoML.Model.HilbertPredictor
 import FoML.Rademacher.Symmetrization
 import FoML.Rademacher.Signs
 
@@ -404,8 +405,10 @@ theorem linear_predictor_l2_empirical_bound_of_sample
         Real.sqrt
           (∑ k : Fin n, ‖(S k : EuclideanSpace ℝ (Fin d))‖ ^ 2)
   rw [empiricalRademacherComplexity_comp]
-  exact linear_predictor_l2_bound_of_sample'
-    (d := d) (n := n) (W := W) (X := X) hW S id
+  simpa only [Function.comp_apply] using
+    (hilbertPredictor_empiricalRademacherComplexity_le
+      (H := EuclideanSpace ℝ (Fin d))
+      W hW (Subtype.val ∘ S))
 
 /--
 Empirical Rademacher-complexity bound for the full class of `ℓ₂`-bounded
@@ -419,13 +422,28 @@ theorem linear_predictor_l2_empirical_bound
           Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
             Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ) S
       ≤ X * W / Real.sqrt (n : ℝ) := by
-  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :=
-    (Metric.nonempty_closedBall.mpr hW).to_subtype
-  change empiricalRademacherComplexity n
-    (fun (w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W)
-        (x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) ↦
-      ⟪(w : EuclideanSpace ℝ (Fin d)), (x : EuclideanSpace ℝ (Fin d))⟫) S
-      ≤ X * W / Real.sqrt (n : ℝ)
-  rw [empiricalRademacherComplexity_comp]
-  exact linear_predictor_l2_bound'
-    (d := d) (n := n) (W := W) (X := X) hX hW S id
+  calc
+    empiricalRademacherComplexity n
+        (linearPredictorL2 :
+          Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ) S ≤
+        W * (n : ℝ)⁻¹ *
+          Real.sqrt
+            (∑ k : Fin n,
+              ‖(S k : EuclideanSpace ℝ (Fin d))‖ ^ 2) :=
+      linear_predictor_l2_empirical_bound_of_sample d n W X hW S
+    _ ≤ W * (n : ℝ)⁻¹ * Real.sqrt (∑ _k : Fin n, X ^ 2) := by
+      gcongr with k
+      exact mem_closedBall_zero_iff.mp (S k).property
+    _ = W * (n : ℝ)⁻¹ * Real.sqrt ((n : ℝ) * X ^ 2) := by simp
+    _ = W * (n : ℝ)⁻¹ * (Real.sqrt (n : ℝ) * X) := by
+      rw [Real.sqrt_mul (Nat.cast_nonneg n), Real.sqrt_sq_eq_abs,
+        abs_of_nonneg hX]
+    _ = X * W / Real.sqrt (n : ℝ) := by
+      by_cases hn : 0 < n
+      · have hsqrt : Real.sqrt (n : ℝ) ≠ 0 := by positivity
+        field_simp [hsqrt]
+        rw [Real.sq_sqrt (Nat.cast_nonneg n)]
+      · have hn0 : n = 0 := Nat.eq_zero_of_not_pos hn
+        subst n
+        simp
