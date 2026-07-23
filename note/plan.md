@@ -1195,10 +1195,10 @@ $$
 
 という被覆数を含まない評価を得る。
 
-- [ ] 有限型全体を中心集合に取る `coveringNumber_le_fintype_card` を追加する。
-- [ ] `EmpiricalFunctionSpace F S` の有限型 instance と card の評価を追加する。
-- [ ] 符号対称化後の card $2|H|$ を使う Dudley corollary を追加する。
-- [ ] 明示的な $\alpha$ を代入した高確率汎化評価を `Main.lean` に掲載する。
+- [x] 有限型全体を中心集合に取る `coveringNumber_le_fintype_card` を追加する。
+- [x] `EmpiricalFunctionSpace F S` の有限型 instance と card の評価を追加する。
+- [x] 符号対称化後の card $2|H|$ を使う Dudley corollary を追加する。
+- [x] 明示的な $\alpha$ を代入した高確率汎化評価を `Main.lean` に掲載する。
 
 ### 17.2 第二段階: 一次元 Lipschitz パラメータ族
 
@@ -1228,15 +1228,15 @@ $$
 
 と評価し、右辺へ grid の card 上界を代入する。
 
-- [ ] 閉区間の有限等間隔 grid と cover 補題を `FoML/Entropy` に追加する。
-- [ ] パラメータ Lipschitz 性から経験距離 Lipschitz 性への bridge を追加する。
-- [ ] 被覆数の明示式、Dudley 評価、高確率汎化評価まで接続する。
+- [x] 閉区間の有限等間隔 grid と cover 補題を `FoML/Entropy` に追加する。
+- [x] パラメータ Lipschitz 性から経験距離 Lipschitz 性への bridge を追加する。
+- [x] 被覆数の明示式、Dudley 評価、高確率汎化評価まで接続する。
 
 ### 17.3 完了条件
 
-- [ ] `Main.lean` の最終式に未評価の `coveringNumber` が残らない。
-- [ ] 有限クラスと連続パラメータ族の少なくとも二例を用意する。
-- [ ] proof term を引数に取る既存 `coveringNumber` API は内部に隠す。
+- [x] `Main.lean` の最終式に未評価の `coveringNumber` が残らない。
+- [x] 有限クラスと連続パラメータ族の少なくとも二例を用意する。
+- [x] proof term を引数に取る既存 `coveringNumber` API は内部に隠す。
 
 ## 18. Phase 12: 損失関数、ERM、余剰誤差
 

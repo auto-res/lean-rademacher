@@ -1,4 +1,5 @@
 import FoML.Entropy.CoveringNumber
+import FoML.ForMathlib.Analysis.FiniteSample
 
 universe v
 open scoped BigOperators
@@ -109,6 +110,47 @@ lemma empiricalDist_proj (S : Fin n → 𝒳) (f : 𝒳 → ℝ) (i : Fin n):
           hnonneg hi)
     · simp
 
+/--
+The empirical norm is at most a uniform bound on the sampled coordinates.
+-/
+lemma empiricalNorm_le_of_abs_le
+    (hn : 0 < n) (S : Fin n → 𝒳) (f : 𝒳 → ℝ)
+    {b : ℝ} (hb : 0 ≤ b) (hf : ∀ k, |f (S k)| ≤ b) :
+    empiricalNorm S f ≤ b := by
+  have havg :
+      (n : ℝ)⁻¹ * ∑ k : Fin n, f (S k) ^ 2 ≤ b ^ 2 := by
+    calc
+      (n : ℝ)⁻¹ * ∑ k : Fin n, f (S k) ^ 2 ≤
+          |(n : ℝ)⁻¹ * ∑ k : Fin n, f (S k) ^ 2| :=
+        le_abs_self _
+      _ ≤ b ^ 2 := by
+        apply abs_normalized_fin_sum_le hn
+          (fun k (_ : Unit) ↦ f (S k) ^ 2) (fun _ ↦ ())
+        intro k _
+        rw [abs_of_nonneg (sq_nonneg _)]
+        rw [← sq_abs]
+        exact (sq_le_sq₀ (abs_nonneg _) hb).2 (hf k)
+  calc
+    empiricalNorm S f =
+        Real.sqrt ((n : ℝ)⁻¹ * ∑ k : Fin n, f (S k) ^ 2) := by
+      simp only [empiricalNorm, one_div]
+    _ ≤ Real.sqrt (b ^ 2) := Real.sqrt_le_sqrt havg
+    _ = b := by rw [Real.sqrt_sq_eq_abs, abs_of_nonneg hb]
+
+/--
+A pointwise Lipschitz estimate on a sample implies the same estimate for the
+empirical pseudometric.
+-/
+lemma empiricalDist_le_of_abs_sub_le
+    (hn : 0 < n) (S : Fin n → 𝒳) (f g : 𝒳 → ℝ)
+    {b : ℝ} (hb : 0 ≤ b)
+    (hfg : ∀ k, |f (S k) - g (S k)| ≤ b) :
+    empiricalDist S f g ≤ b := by
+  rw [empiricalDist]
+  apply empiricalNorm_le_of_abs_le hn S (f - g) hb
+  intro k
+  exact hfg k
+
 section
 
 universe u
@@ -117,6 +159,26 @@ variable {S : Fin n → 𝒳}
 
 structure EmpiricalFunctionSpace (F : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) where
   index : ι
+
+instance [Nonempty ι] : Nonempty (EmpiricalFunctionSpace F S) :=
+  ⟨⟨Classical.choice inferInstance⟩⟩
+
+/-- `EmpiricalFunctionSpace F S` has the same underlying indices as `ι`. -/
+def empiricalFunctionSpaceEquiv :
+    EmpiricalFunctionSpace F S ≃ ι where
+  toFun q := q.index
+  invFun h := ⟨h⟩
+  left_inv q := by cases q; rfl
+  right_inv _ := rfl
+
+noncomputable instance [Fintype ι] :
+    Fintype (EmpiricalFunctionSpace F S) :=
+  Fintype.ofEquiv ι empiricalFunctionSpaceEquiv.symm
+
+@[simp]
+lemma card_empiricalFunctionSpace [Fintype ι] :
+    Fintype.card (EmpiricalFunctionSpace F S) = Fintype.card ι :=
+  Fintype.card_congr empiricalFunctionSpaceEquiv
 
 instance : CoeFun (EmpiricalFunctionSpace F S) (fun _ ↦ 𝒳 → ℝ) where
   coe f := F f.index
@@ -131,5 +193,11 @@ noncomputable instance : Dist (EmpiricalFunctionSpace F S) where
 
 noncomputable instance : PseudoMetricSpace (EmpiricalFunctionSpace F S) :=
   PseudoMetricSpace.induced (fun f ↦ F f.index) (empiricalPMet S)
+
+/-- A finitely indexed empirical function space is totally bounded. -/
+lemma empiricalFunctionSpace_totallyBounded [Fintype ι] :
+    TotallyBounded
+      (Set.univ : Set (EmpiricalFunctionSpace F S)) :=
+  Set.finite_univ.totallyBounded
 
 end

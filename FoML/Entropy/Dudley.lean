@@ -77,6 +77,77 @@ theorem signSymmetrization_totallyBounded
     · simp]
   exact hpos.union hneg
 
+omit [Nonempty ι] in
+/--
+Adjoining pointwise negatives increases a positive-radius covering number by
+at most a factor of two.
+-/
+lemma coveringNumber_signSymmetrization_le_two_mul
+    (h : TotallyBounded
+      (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    {ε : ℝ} (hε : 0 < ε) :
+    coveringNumber
+        (signSymmetrization_totallyBounded (F := F) (S := S) h) ε ≤
+      2 * coveringNumber h ε := by
+  let t := coveringFinset h hε
+  let tpos :=
+    t.image (signSymmetrizationPosMap (F := F) (S := S))
+  let tneg :=
+    t.image (signSymmetrizationNegMap (F := F) (S := S))
+  let centers := tpos ∪ tneg
+  have hcard : centers.card ≤ 2 * coveringNumber h ε := by
+    calc
+      centers.card ≤ tpos.card + tneg.card := by
+        dsimp only [centers]
+        exact Finset.card_union_le _ _
+      _ ≤ t.card + t.card :=
+        add_le_add Finset.card_image_le Finset.card_image_le
+      _ = 2 * coveringNumber h ε := by
+        rw [coveringFinset_card h hε]
+        ring
+  refine (coveringNumber_le_card_of_cover
+    (signSymmetrization_totallyBounded (F := F) (S := S) h)
+    hε centers ?_).trans hcard
+  intro q _
+  rcases q with ⟨⟨i, b⟩⟩
+  have hcover := coveringFinset_cover h hε
+    (show (⟨i⟩ : EmpiricalFunctionSpace F S) ∈ Set.univ by simp)
+  simp only [Set.mem_iUnion] at hcover ⊢
+  obtain ⟨y, hyt, hyball⟩ := hcover
+  cases b
+  · let center :=
+      signSymmetrizationNegMap (F := F) (S := S) y
+    refine ⟨center, ?_, ?_⟩
+    · exact Finset.mem_union_right _ (Finset.mem_image.2 ⟨y, hyt, rfl⟩)
+    · change dist
+        (signSymmetrizationNegMap (F := F) (S := S)
+          (⟨i⟩ : EmpiricalFunctionSpace F S)) center < ε
+      calc
+        dist
+            (signSymmetrizationNegMap (F := F) (S := S)
+              (⟨i⟩ : EmpiricalFunctionSpace F S)) center =
+            dist (⟨i⟩ : EmpiricalFunctionSpace F S) y := by
+          dsimp only [center]
+          exact (signSymmetrizationNegMap_isometry
+            (F := F) (S := S)).dist_eq _ _
+        _ < ε := by simpa [Metric.mem_ball] using hyball
+  · let center :=
+      signSymmetrizationPosMap (F := F) (S := S) y
+    refine ⟨center, ?_, ?_⟩
+    · exact Finset.mem_union_left _ (Finset.mem_image.2 ⟨y, hyt, rfl⟩)
+    · change dist
+        (signSymmetrizationPosMap (F := F) (S := S)
+          (⟨i⟩ : EmpiricalFunctionSpace F S)) center < ε
+      calc
+        dist
+            (signSymmetrizationPosMap (F := F) (S := S)
+              (⟨i⟩ : EmpiricalFunctionSpace F S)) center =
+            dist (⟨i⟩ : EmpiricalFunctionSpace F S) y := by
+          dsimp only [center]
+          exact (signSymmetrizationPosMap_isometry
+            (F := F) (S := S)).dist_eq _ _
+        _ < ε := by simpa [Metric.mem_ball] using hyball
+
 variable {c : ℝ}
   -- Dyadic radius sequence, associated cover, and cover cardinality.
 private noncomputable abbrev ej (c : ℝ) : ℕ → ℝ := fun j ↦ c/(2^j : ℝ)

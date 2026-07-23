@@ -84,3 +84,34 @@ lemma coveringFinset_card
   have h :=
     (Classical.choose_spec (Nat.find_spec (coveringNumber_exists (X:=X) (A:=A) ha hε))).1
   simpa [coveringFinset, coveringNumber_eq (X:=X) (A:=A) ha hε, coveringNumber_exists] using h
+
+/--
+Any explicit finite `ε`-cover bounds the covering number by its cardinality.
+-/
+theorem coveringNumber_le_card_of_cover
+    {X : Type*} [PseudoMetricSpace X] {A : Set X}
+    (ha : TotallyBounded A) {ε : ℝ} (hε : 0 < ε)
+    (t : Finset X) (ht : A ⊆ ⋃ y ∈ t, Metric.ball y ε) :
+    coveringNumber ha ε ≤ t.card := by
+  classical
+  rw [coveringNumber_eq ha hε]
+  let p : ℕ → Prop :=
+    fun k ↦ ∃ s : Finset X,
+      s.card = k ∧ A ⊆ ⋃ y ∈ s, Metric.ball y ε
+  change @Nat.find p (Classical.decPred p) _ ≤ t.card
+  exact @Nat.find_min' p (Classical.decPred p)
+    (coveringNumber_exists ha hε) t.card ⟨t, rfl, ht⟩
+
+/--
+A finite ambient type covers each of its subsets by taking every point as a
+center.  Thus its covering number is at most the cardinality of the type.
+-/
+theorem coveringNumber_le_fintype_card
+    {X : Type*} [PseudoMetricSpace X] [Fintype X]
+    {A : Set X} (ha : TotallyBounded A) {ε : ℝ} (hε : 0 < ε) :
+    coveringNumber ha ε ≤ Fintype.card X := by
+  classical
+  apply coveringNumber_le_card_of_cover ha hε Finset.univ
+  intro x _
+  simp only [Set.mem_iUnion]
+  exact ⟨x, ⟨by simp, by simpa [Metric.mem_ball] using hε⟩⟩

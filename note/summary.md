@@ -1,13 +1,13 @@
 # `lean-rademacher` の実装概要
 
 - 最終確認日: 2026-07-24
-- 基準ブランチ: `ss`（Phase 12 完了時点）
+- 基準ブランチ: `ss`（Phase 11 完了時点）
 
 ## 0. 対象と現在の到達点
 
 この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。抽象的な汎化定理は [`FoML/Generalization/Countable.lean`](../FoML/Generalization/Countable.lean)、[`FoML/Generalization/Separable.lean`](../FoML/Generalization/Separable.lean)、[`FoML/Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) に分割されている。[`FoML/Main.lean`](../FoML/Main.lean) は主要な利用例を繰り返す入口、[`FoML.lean`](../FoML.lean) はライブラリ全体の入口である。
 
-現在の実装は、次の七つの経路を一つの公開 API として接続している。
+現在の実装は、次の八つの経路を一つの公開 API として接続している。
 
 1. 一様偏差の期待値を symmetrization により期待 Rademacher 複雑度で評価する。
 2. 一様偏差の有界差分性と McDiarmid の不等式から高確率汎化評価を得る。
@@ -17,6 +17,8 @@
 6. 線形予測器または Dudley entropy integral による経験複雑度の評価を上記の接続定理へ投入し、信頼度 $0<\delta\le1$ を直接受け取る E2E 評価を得る。
 7. 一様偏差評価を ERM の決定論的 oracle inequality と合成し、期待または経験
    Rademacher 複雑度から余剰誤差の高確率評価を得る。
+8. 有限クラスまたは一次元 Lipschitz パラメータ族の被覆数を具体的に評価し、
+   Dudley の entropy integral から被覆数を含まない高確率汎化評価を得る。
 
 とくに、以前分離していた次の二点は接続済みである。
 
@@ -28,6 +30,10 @@
   余剰誤差評価があり、学習則の可測性や `argmin` の存在を不要に仮定しない。
 - 有限仮説型について Lipschitz contraction を証明し、片側経験 Rademacher
   複雑度では定数 $L$、絶対値付き定義では定数 $2L$ となることを明示している。
+- 有限クラスでは $N(F^\pm,\varepsilon)\le2|H|$、一次元 Lipschitz
+  パラメータ族では
+  $N(F,\varepsilon)\le\lceil2WL/\varepsilon\rceil+1$ を証明し、両者を
+  proof term の現れない Dudley E2E 評価へ接続している。
 
 概念上の依存関係は次のようにまとめられる。
 
@@ -51,9 +57,13 @@ flowchart LR
     linearL2["Model/<br/>LinearPredictorL2"]
     linearL1["Model/<br/>LinearPredictorL1"]
     dudley["Entropy/<br/>Dudley"]
+    finiteEntropy["Entropy/<br/>FiniteClass"]
+    lipschitzEntropy["Entropy/<br/>LipschitzParameter"]
     l2Gen["Generalization/<br/>LinearPredictorL2"]
     l1Gen["Generalization/<br/>LinearPredictorL1"]
     dudleyGen["Generalization/<br/>Dudley"]
+    finiteGen["Generalization/<br/>FiniteClass"]
+    lipschitzGen["Generalization/<br/>LipschitzParameter"]
     learningDefs["Learning/<br/>Defs"]
     erm["Learning/<br/>ERM"]
     contraction["Learning/<br/>Contraction"]
@@ -86,6 +96,12 @@ flowchart LR
     confidence --> l1Gen
     dudley --> dudleyGen
     confidence --> dudleyGen
+    dudley --> finiteEntropy
+    dudley --> lipschitzEntropy
+    finiteEntropy --> finiteGen
+    confidence --> finiteGen
+    lipschitzEntropy --> lipschitzGen
+    confidence --> lipschitzGen
     defs --> learningDefs
     finiteSample --> erm
     learningDefs --> erm
@@ -98,6 +114,8 @@ flowchart LR
     l2Gen --> main
     l1Gen --> main
     dudleyGen --> main
+    finiteGen --> main
+    lipschitzGen --> main
     learningGen --> main
     reindex --> main
 ```
@@ -1166,6 +1184,8 @@ empiricalDist_neg_neg
 | `coveringFinset` | 最小被覆数を実現する有限中心集合を選ぶ。 |
 | `coveringFinset_cover` | 選択した有限集合の被覆性。 |
 | `coveringFinset_card` | その要素数が被覆数に一致すること。 |
+| `coveringNumber_le_card_of_cover` | 任意の有限 cover の要素数から被覆数を評価する。 |
+| `coveringNumber_le_fintype_card` | 有限型全体を中心集合に取り、被覆数を型の濃度で評価する。 |
 
 `coveringNumber` は全有界性の証明項を引数に持つ。符号対称化後の被覆数では、名前付き定理 `signSymmetrization_totallyBounded` が生成する証明項を一貫して用いる。
 
@@ -1316,13 +1336,16 @@ $$
 
 を示す。
 
-ここでは符号対称化クラスの被覆数を直接用いる。現在の core 接続には
+ここでは一般の符号対称化クラスの被覆数を直接用いる。さらに
+`coveringNumber_signSymmetrization_le_two_mul` は、元の経験関数空間が
+全有界なら
 
 $$
 N_{F^\pm}(u;S)\le2N_F(u;S)
 $$
 
-という追加評価は使っておらず、この被覆数比較自体は実装していない。
+を示す。有限クラスと一次元 Lipschitz パラメータ族では、この比較を使って
+最終式から符号対称化後の被覆数も除去する。
 
 ### 7.6 観測標本上の entropy integral を使う汎化評価
 
@@ -1395,6 +1418,68 @@ $$
 $$
 
 である。
+
+### 7.7 具体的被覆数を使う Dudley 評価
+
+[`FoML/Entropy/FiniteClass.lean`](../FoML/Entropy/FiniteClass.lean) は、
+有限型 $H$ で添字付けられた経験関数空間の濃度が $|H|$ であることと、
+符号対称化後の被覆数評価
+
+$$
+N_{F^\pm}(u;S)\le2|H|
+$$
+
+を使う。`finiteClassDudleyEstimate` は
+
+```lean
+noncomputable def finiteClassDudleyEstimate
+    (n card : ℕ) (α c : ℝ) : ℝ :=
+  4 * α + (12 / Real.sqrt n) * (c / 2 - α) *
+    Real.sqrt (Real.log (2 * card))
+```
+
+と項まで定義される。`α = c/4` を代入した
+`empiricalRademacherComplexity_le_finiteClassDudleyEstimate_quarter` は
+
+$$
+\widehat{\mathfrak R}_n(F;S)
+\le
+c+\frac{3c}{\sqrt n}\sqrt{\log(2|H|)}
+$$
+
+を示す。これを
+`uniform_deviation_tail_bound_finite_of_dudley_quarter_delta` が可算クラス用の
+標本依存 bridge へ渡し、被覆数を含まない信頼度形式にする。
+
+[`FoML/Entropy/LipschitzParameter.lean`](../FoML/Entropy/LipschitzParameter.lean)
+は $t\in[-W,W]$ と
+
+$$
+|F_t(x)-F_s(x)|\le L|t-s|
+$$
+
+を仮定する。等間隔 grid と
+`empiricalDist_le_mul_abs_parameter_sub` により
+
+$$
+N_F(u;S)\le
+\left\lceil\frac{2WL}{u}\right\rceil+1
+$$
+
+を示す。被覆数の反単調性により entropy integrand を切断尺度 $\alpha$ の
+値で評価し、次の項を得る。
+
+```lean
+noncomputable def lipschitzParameterDudleyEstimate
+    (n : ℕ) (W L α c : ℝ) : ℝ :=
+  4 * α + (12 / Real.sqrt n) * (c / 2 - α) *
+    Real.sqrt
+      (Real.log (2 * (Nat.ceil (2 * W * L / α) + 1)))
+```
+
+`uniform_deviation_tail_bound_lipschitzParameter_dudley_delta` はこの固定標本評価を
+可分クラス用の標本依存 bridge へ接続する。したがって、連続パラメータ族の
+最終的な高確率評価にも `coveringNumber` や全有界性の証明項は現れない。
 
 ## 8. 公開 API とモジュール配置
 
@@ -1471,6 +1556,12 @@ $$
 | 標本一様 entropy 評価から tail | `uniform_deviation_tail_bound_separable_of_uniform_dudley` |
 | 観測標本上の entropy integral から tail、`ε` 形式 | `uniform_deviation_tail_bound_separable_of_dudley` |
 | 観測標本上の entropy integral から tail、`δ` 形式 | `uniform_deviation_tail_bound_separable_of_dudley_delta` |
+| 符号対称化前後の被覆数比較 | `coveringNumber_signSymmetrization_le_two_mul` |
+| 有限クラスの固定標本評価 | `empiricalRademacherComplexity_le_finiteClassDudleyEstimate`, `empiricalRademacherComplexity_le_finiteClassDudleyEstimate_quarter` |
+| 有限クラスの明示的 tail | `uniform_deviation_tail_bound_finite_of_dudley_delta`, `uniform_deviation_tail_bound_finite_of_dudley_quarter_delta` |
+| 一次元 Lipschitz 族の被覆数 | `coveringNumber_lipschitzParameter_le` |
+| 一次元 Lipschitz 族の固定標本評価 | `empiricalRademacherComplexity_le_lipschitzParameterDudleyEstimate` |
+| 一次元 Lipschitz 族の明示的 tail | `uniform_deviation_tail_bound_lipschitzParameter_dudley_delta` |
 
 ### 8.6 損失、ERM、余剰誤差
 
@@ -1727,13 +1818,16 @@ Lean の実数では $0^{-1}=0$ なので、中心定義は $n=0$ でも総関�
 
 `coveringNumber` は全有界性の証明を引数に取る。Lean では証明の無関係性により数学的な値は証明の選択に依存しないが、定理の式には証明項が現れる。符号対称化後については `signSymmetrization_totallyBounded` を共通して使うことで、公開 API の式を安定させている。
 
+有限クラスと一次元 Lipschitz パラメータ族の公開 API では、この低水準の引数を
+完全に隠している。利用者が指定するのは型の有限性、または区間幅と Lipschitz
+定数であり、高確率評価の結論には被覆数の証明項が現れない。
+
 ### 9.7 現在扱っていないもの
 
 次は現行の主要 API には含まれていない。
 
 - RKHS の具体的な複雑度評価。
-- Lipschitz 関数やニューラルネットワークに対する具体的な被覆数評価。
-- 符号対称化前後の被覆数を係数 $2$ で比較する補題。
+- 多次元 Lipschitz 関数族やニューラルネットワークに対する具体的な被覆数評価。
 - 一般の非有限可分仮説型に対する contraction inequality。現状の完全な
   contraction 定理は有限仮説型を扱う。
 - コンパクト性と連続性から population risk minimizer または ERM の存在を
@@ -1777,13 +1871,17 @@ $$
 | [`Entropy/MaximalInequality.lean`](../FoML/Entropy/MaximalInequality.lean) | 有限個の sub-Gaussian 和の expected maximum。 |
 | [`Entropy/Massart.lean`](../FoML/Entropy/Massart.lean) | PMF 版 Massart finite-class lemma。 |
 | [`Entropy/CoveringNumber.lean`](../FoML/Entropy/CoveringNumber.lean) | 被覆数と最小被覆有限集合。 |
-| [`Entropy/PseudoMetric.lean`](../FoML/Entropy/PseudoMetric.lean) | 経験ノルム、経験擬距離、関数空間。 |
-| [`Entropy/Dudley.lean`](../FoML/Entropy/Dudley.lean) | chaining、entropy integral、符号対称化後の全有界性、絶対値付き Dudley 評価。 |
+| [`Entropy/PseudoMetric.lean`](../FoML/Entropy/PseudoMetric.lean) | 経験ノルム、経験擬距離、経験関数空間とその有限型構造。 |
+| [`Entropy/Dudley.lean`](../FoML/Entropy/Dudley.lean) | chaining、entropy integral、符号対称化後の全有界性・被覆数比較、絶対値付き Dudley 評価。 |
+| [`Entropy/FiniteClass.lean`](../FoML/Entropy/FiniteClass.lean) | 有限クラスの濃度による明示的 Dudley 評価。 |
+| [`Entropy/LipschitzParameter.lean`](../FoML/Entropy/LipschitzParameter.lean) | 一次元区間の grid、経験距離 Lipschitz bridge、明示的 Dudley 評価。 |
 | [`Model/LinearPredictorL2.lean`](../FoML/Model/LinearPredictorL2.lean) | $\ell_2$ 線形予測器、標本の二乗ノルムを残す経験評価、その一様半径版。 |
 | [`Model/LinearPredictorL1.lean`](../FoML/Model/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器、座標ごとの標本二乗和を残す経験評価、その一様半径版。 |
 | [`Generalization/LinearPredictorL2.lean`](../FoML/Generalization/LinearPredictorL2.lean) | $\ell_2$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
 | [`Generalization/LinearPredictorL1.lean`](../FoML/Generalization/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
 | [`Generalization/Dudley.lean`](../FoML/Generalization/Dudley.lean) | `dudleyEntropyEstimate` と、Dudley 評価から期待量・高確率汎化評価への接続。 |
+| [`Generalization/FiniteClass.lean`](../FoML/Generalization/FiniteClass.lean) | 有限クラスの明示的 Dudley 評価を信頼度形式へ接続する E2E 定理。 |
+| [`Generalization/LipschitzParameter.lean`](../FoML/Generalization/LipschitzParameter.lean) | 一次元 Lipschitz パラメータ族の明示的 Dudley E2E 定理。 |
 | [`Learning/Defs.lean`](../FoML/Learning/Defs.lean) | population risk、empirical risk、余剰誤差、ERM 述語、supervised loss class。 |
 | [`Learning/ERM.lean`](../FoML/Learning/ERM.lean) | 点ごとの偏差および一様偏差から得る決定論的 ERM oracle inequality。 |
 | [`Learning/Contraction.lean`](../FoML/Learning/Contraction.lean) | 有限仮説型の片側・絶対値付き Lipschitz contraction と中心化損失版。 |
@@ -1805,13 +1903,14 @@ CRLF または混在改行も LF へ正規化済みである。
 
 ## 11. 検証状態
 
-2026-07-24 時点で、Phase 12 の損失・ERM・余剰誤差評価まで含む全体
+2026-07-24 時点で、Phase 11 の具体的被覆数評価まで含む全体
 `lake build` は成功している。`FoML` 直下は `Defs.lean` と `Main.lean` の
 二つである。
 `import FoML.Main` から、
 `MeasureTheory` 名前空間の測度 bridge、信頼半径、新しい汎化 bridge、
 `denseRestriction`、reindex API、両線形クラスの E2E 評価、
-`dudleyEntropyEstimate`、Dudley の信頼度形式、ERM oracle inequality、
-余剰誤差 tail、有限クラス contraction を参照できる。`FoML` 以下に
+`dudleyEntropyEstimate`、Dudley の信頼度形式、有限クラスおよび一次元
+Lipschitz パラメータ族の被覆数を含まない Dudley E2E 評価、
+ERM oracle inequality、余剰誤差 tail、有限クラス contraction を参照できる。`FoML` 以下に
 `sorry` または `admit` はない。文書中の高確率評価はすべて悪い事象の確率に
 対する上界として記している。

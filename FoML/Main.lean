@@ -1,6 +1,8 @@
 import FoML.Generalization.LinearPredictorL2
 import FoML.Generalization.LinearPredictorL1
 import FoML.Generalization.Dudley
+import FoML.Generalization.FiniteClass
+import FoML.Generalization.LipschitzParameter
 import FoML.Generalization.Learning
 import FoML.Rademacher.Reindex
 
@@ -258,6 +260,79 @@ example
   exact uniform_deviation_tail_bound_separable_of_dudley_delta
     F hF_meas X hX hb hF_bound hF_cont hn hα hαc
     htb hnorm hδ hδ_one
+
+/-!
+For a finite hypothesis class, taking every hypothesis as a cover center gives
+$N(F^\pm,\varepsilon)\leq2|H|$.  Choosing $\alpha=c/4$ in Dudley's estimate
+removes the covering number completely:
+
+$$
+\widehat{\mathfrak R}_n(F;S)
+\leq
+c+\frac{3c}{\sqrt n}\sqrt{\log(2|H|)}.
+$$
+
+The following high-probability example has no unevaluated entropy term.
+-/
+
+/-- Explicit finite-class Dudley generalization bound. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳]
+    [Fintype H] [Nonempty H] [IsProbabilityMeasure μ]
+    (F : H → 𝒳 → ℝ) (hF_meas : ∀ h, Measurable (F h))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b c δ : ℝ} (hb : 0 < b) (hF_bound : ∀ h x, |F h x| ≤ b)
+    (hn : 0 < n) (hc : 0 < c)
+    (hNorm : ∀ (S : Fin n → 𝒳) h, empiricalNorm S (F h) ≤ c)
+    (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 *
+          (c + (3 * c / Real.sqrt n) *
+            Real.sqrt (Real.log (2 * Fintype.card H))) +
+          3 * sampleConfidenceRadius b δ n ≤
+        uniformDeviation n F μ X (X ∘ S)}).toReal ≤ δ := by
+  exact uniform_deviation_tail_bound_finite_of_dudley_quarter_delta
+    F hF_meas X hX hb hF_bound hn hc hNorm hδ hδ_one
+
+/-!
+For a continuously parameterized family $F_t$, $t\in[-W,W]$, satisfying
+
+$$
+|F_t(x)-F_s(x)|\leq L|t-s|,
+$$
+
+an equally spaced grid gives
+
+$$
+N(F,\varepsilon)
+\leq
+\left\lceil\frac{2WL}{\varepsilon}\right\rceil+1.
+$$
+
+Freezing this estimate at the Dudley truncation scale $\alpha$ yields the
+following confidence bound, again with no unevaluated covering number.
+-/
+
+/-- Explicit Dudley generalization bound for a Lipschitz parameter family. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    {W L : ℝ} (hW : 0 ≤ W) (hL : 0 < L)
+    (F : Set.Icc (-W) W → 𝒳 → ℝ)
+    (hF_meas : ∀ t, Measurable (F t))
+    (hF_lip : ∀ t s x, |F t x - F s x| ≤ L * |t.1 - s.1|)
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b c α δ : ℝ} (hb : 0 < b) (hF_bound : ∀ t x, |F t x| ≤ b)
+    (hα : 0 < α) (hαc : α < c / 2)
+    (hNorm : ∀ (S : Fin n → 𝒳) t, empiricalNorm S (F t) ≤ c)
+    (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * lipschitzParameterDudleyEstimate n W L α c +
+          3 * sampleConfidenceRadius b δ n ≤
+        uniformDeviation n F μ X (X ∘ S)}).toReal ≤ δ := by
+  exact uniform_deviation_tail_bound_lipschitzParameter_dudley_delta
+    hn hW hL F hF_meas hF_lip X hX hb hF_bound
+    hα hαc hNorm hδ hδ_one
 
 /-!
 ## Approximate ERM and excess risk
