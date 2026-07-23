@@ -503,18 +503,18 @@ uniform_deviation_tail_bound_separable_of_uniform_dudley
 
 ### Phase 3: Dudley の絶対値付き版
 
-- [ ] `signSymmetrization` と経験複雑度の等式を追加する。
-- [ ] 負号で閉じたクラス用の等式を追加する。
-- [ ] empirical norm と total boundedness を符号対称化へ移す。
-- [ ] `dudley_entropy_integral_bound_abs` を公開する。
-- [ ] 標本一様な entropy 上界から期待量・汎化評価を得る corollary を追加する。
-- [ ] 必要に応じて covering number の係数 `2` の評価を追加する。
+- [x] `signSymmetrization` と経験複雑度の等式を追加する。
+- [x] 負号で閉じたクラス用の等式を追加する。
+- [x] empirical norm と total boundedness を符号対称化へ移す。
+- [x] `dudley_entropy_integral_bound_abs` を公開する。
+- [x] 標本一様な entropy 上界から期待量・汎化評価を得る corollary を追加する。
+- [x] covering number の係数 `2` は core の接続に不要なため追加せず、符号対称化後の被覆数を直接使う。
 
 ### Phase 4: 公開 API と文書
 
-- [ ] `FoML/Main.lean` の docstring を、経験評価・期待評価・汎化評価の区別が分かる表現にする。
-- [ ] `README.md` の selected contents に新しい end-to-end 定理を追加する。
-- [ ] `note/summary.md` の 9.1, 9.2 を、解消済みの宣言名と残る仮定に合わせて更新する。
+- [x] `FoML/Main.lean` の docstring を、経験評価・期待評価・汎化評価の区別が分かる表現にする。
+- [x] `README.md` の selected contents に新しい end-to-end 定理を追加する。
+- [x] `note/summary.md` の 9.1, 9.2 を、解消済みの宣言名と残る仮定に合わせて更新する。
 
 ## 9. ファイルごとの変更予定
 

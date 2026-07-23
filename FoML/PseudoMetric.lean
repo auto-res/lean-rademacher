@@ -12,6 +12,11 @@ lemma empiricalNorm_def (S : Fin n → 𝒳) (f : 𝒳 → ℝ) :
     empiricalNorm S f = Real.sqrt ((1 / n) * ∑ i : Fin n, (f (S i))^2) :=
   rfl
 
+@[simp]
+lemma empiricalNorm_neg (S : Fin n → 𝒳) (f : 𝒳 → ℝ) :
+    empiricalNorm S (-f) = empiricalNorm S f := by
+  simp [empiricalNorm]
+
 noncomputable def empiricalDist (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) : ℝ :=
   empiricalNorm S (f - g)
 
@@ -65,6 +70,16 @@ noncomputable def empiricalPMet (S : Fin n → 𝒳) :
 lemma empiricalDist_app (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) :
     empiricalDist S f g = empiricalNorm S (f - g) :=
   rfl
+
+@[simp]
+lemma empiricalDist_neg_neg (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) :
+    empiricalDist S (-f) (-g) = empiricalDist S f g := by
+  rw [empiricalDist, empiricalDist]
+  have h : (-f) - (-g) = -(f - g) := by
+    ext x
+    dsimp
+    ring
+  rw [h, empiricalNorm_neg]
 
 @[simp] lemma empiricalDist_comm (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) :
     empiricalDist S f g = empiricalDist S g f := by

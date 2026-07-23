@@ -365,7 +365,10 @@ theorem uniform_deviation_tail_bound_separable_of_empirical_le
 
 local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
 
-/-- Example: L2 linear predictor bound for empirical Rademacher complexity. -/
+/--
+Fixed-sample empirical Rademacher-complexity bound for `ℓ₂` linear
+predictors. See the following theorems for expected and tail bounds.
+-/
 theorem linear_predictor_l2_bound
     [Nonempty ι]
     (d : ℕ)
@@ -378,7 +381,11 @@ theorem linear_predictor_l2_bound
     X * W / √(n : ℝ) := by
   exact linear_predictor_l2_bound' (d := d) (n := n) (W := W) (X := X) hx hw Y' w'
 
-/-- Example: L1/L∞ linear predictor bound for empirical Rademacher complexity. -/
+/--
+Fixed-sample empirical Rademacher-complexity bound for `ℓ₁` predictors on
+coordinatewise bounded inputs. See the following theorems for expected and
+tail bounds.
+-/
 theorem linear_predictor_l1_bound
     [Nonempty ι]
     (d : ℕ)
@@ -563,7 +570,10 @@ theorem linear_predictor_l1_uniform_deviation_tail_bound
       d n Xinf W (le_of_lt hX) (le_of_lt hW) d_pos n_pos
   · exact hε
 
-/-- Dudley entropy integral upper bound for empirical Rademacher complexity. -/
+/--
+Dudley entropy-integral upper bound for the one-sided empirical Rademacher
+complexity of a fixed sample.
+-/
 theorem dudley_entropy_integral_bound
   {𝒳 : Type v} {n : ℕ} {ι : Type u} [Nonempty ι] {F : ι → 𝒳 → ℝ} {S : Fin n → 𝒳} {c ε : ℝ}
   (ε_pos : 0 < ε) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
@@ -573,5 +583,105 @@ theorem dudley_entropy_integral_bound
     (4 * ε + (12 / Real.sqrt n) *
     (∫ (x : ℝ) in ε..(c/2),√(Real.log (coveringNumber h' x)))) := by
   exact dudley_entropy_integral' ε_pos h' m_pos cs ε_le_c_div_2
+
+/--
+Dudley entropy-integral upper bound for the absolute empirical Rademacher
+complexity of a fixed sample. The entropy is that of the class enlarged by
+its pointwise negatives.
+-/
+theorem dudley_entropy_integral_bound_abs
+    {𝒳 : Type v} {n : ℕ} {ι : Type u} [Nonempty ι]
+    {F : ι → 𝒳 → ℝ} {S : Fin n → 𝒳} {c ε : ℝ}
+    (ε_pos : 0 < ε)
+    (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    (n_pos : 0 < n) (cs : ∀ i : ι, empiricalNorm S (F i) ≤ c)
+    (ε_lt_c_div_2 : ε < c / 2) :
+    empiricalRademacherComplexity n F S ≤
+      4 * ε + (12 / Real.sqrt n) *
+        (∫ (x : ℝ) in ε..(c / 2),
+          √(Real.log (coveringNumber
+            (signSymmetrization_totallyBounded (F := F) (S := S) h') x))) := by
+  exact dudley_entropy_integral_abs ε_pos h' n_pos cs ε_lt_c_div_2
+
+/--
+For a class closed under pointwise negation, Dudley's entropy integral for
+the original class bounds its absolute empirical Rademacher complexity.
+-/
+theorem dudley_entropy_integral_bound_abs_of_neg_closed
+    {𝒳 : Type v} {n : ℕ} {ι : Type u} [Nonempty ι]
+    {F : ι → 𝒳 → ℝ} {S : Fin n → 𝒳} {c ε : ℝ}
+    (ε_pos : 0 < ε)
+    (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    (n_pos : 0 < n) (cs : ∀ i : ι, empiricalNorm S (F i) ≤ c)
+    (ε_lt_c_div_2 : ε < c / 2) (hneg : IsNegClosed F) :
+    empiricalRademacherComplexity n F S ≤
+      4 * ε + (12 / Real.sqrt n) *
+        (∫ (x : ℝ) in ε..(c / 2),
+          √(Real.log (coveringNumber h' x))) := by
+  exact dudley_entropy_integral_abs_of_neg_closed
+    ε_pos h' n_pos cs ε_lt_c_div_2 hneg
+
+/--
+A sample-uniform Dudley entropy estimate bounds expected Rademacher
+complexity for a separable class.
+-/
+theorem rademacher_complexity_le_dudley_of_uniform_entropy
+    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (X : Ω → 𝒳)
+    (hf : ∀ i, Measurable (f i ∘ X))
+    {b c α C : ℝ} (hb : 0 ≤ b) (hf_bound : ∀ i x, |f i x| ≤ b)
+    (hf_cont : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    (n_pos : 0 < n) (α_pos : 0 < α) (α_lt_c_div_2 : α < c / 2)
+    (htb : ∀ S : Fin n → 𝒳,
+      TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace f S)))
+    (hnorm : ∀ (S : Fin n → 𝒳) (i : ι), empiricalNorm S (f i) ≤ c)
+    (hentropy : ∀ S : Fin n → 𝒳,
+      4 * α + (12 / Real.sqrt n) *
+          (∫ (x : ℝ) in α..(c / 2),
+            √(Real.log (coveringNumber
+              (signSymmetrization_totallyBounded
+                (F := f) (S := S) (htb S)) x)))
+        ≤ C) :
+    rademacherComplexity n f μ X ≤ C := by
+  apply rademacherComplexity_le_of_empirical_le_separable
+    f X hf hb hf_bound hf_cont
+  intro S
+  exact (dudley_entropy_integral_bound_abs
+    α_pos (htb S) n_pos (hnorm S) α_lt_c_div_2).trans (hentropy S)
+
+/--
+A sample-uniform Dudley entropy estimate gives a deterministic-threshold
+high-probability uniform-deviation bound for a separable class.
+-/
+theorem uniform_deviation_tail_bound_separable_of_uniform_dudley
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
+    [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b c α C : ℝ} (hb : 0 < b) (hf_bound : ∀ i x, |f i x| ≤ b)
+    (hf_cont : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    (n_pos : 0 < n) (α_pos : 0 < α) (α_lt_c_div_2 : α < c / 2)
+    (htb : ∀ S : Fin n → 𝒳,
+      TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace f S)))
+    (hnorm : ∀ (S : Fin n → 𝒳) (i : ι), empiricalNorm S (f i) ≤ c)
+    (hentropy : ∀ S : Fin n → 𝒳,
+      4 * α + (12 / Real.sqrt n) *
+          (∫ (x : ℝ) in α..(c / 2),
+            √(Real.log (coveringNumber
+              (signSymmetrization_totallyBounded
+                (F := f) (S := S) (htb S)) x)))
+        ≤ C)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω ↦
+      2 • C + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
+      (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+  apply uniform_deviation_tail_bound_separable_of_empirical_le
+    (f := f) hf X hX hb hf_bound hf_cont
+  · intro S
+    exact (dudley_entropy_integral_bound_abs
+      α_pos (htb S) n_pos (hnorm S) α_lt_c_div_2).trans (hentropy S)
+  · exact hε
 
 end

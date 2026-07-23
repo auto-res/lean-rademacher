@@ -135,7 +135,7 @@ $$
        -\mathbb E_\mu[f_i(X)]\right|.
 $$
 
-学習後に標本依存で $i$ を選んでも、この量がクラス全体の generalization gap を同時に支配する。
+学習後に標本依存で $i$ を選んでも、この量がクラス全体の汎化ギャップを同時に支配する。
 
 ### 2.2 積測度と独立性
 
@@ -367,6 +367,21 @@ uniform_deviation_tail_bound_separable_of_pos
 
 `FirstCountableTopology` は $i\mapsto\int f_i(X(\omega))\,d\mu$ の連続性を一様支配から導く `continuous_of_dominated` の適用に使われる。結論の定数は可算版と同じである。
 
+固定標本について一様な評価
+
+$$
+\forall S,\qquad
+\widehat{\mathfrak R}_n(f;S)\le C
+$$
+
+を期待量と汎化評価へ移す bridge も公開されている。
+
+| 対象 | 可算クラス | 可分クラス |
+|---|---|---|
+| 期待 Rademacher complexity | `rademacherComplexity_le_of_empirical_le_countable` | `rademacherComplexity_le_of_empirical_le_separable` |
+| 期待一様偏差 | `uniform_deviation_expectation_le_of_empirical_le_countable` | `uniform_deviation_expectation_le_of_empirical_le_separable` |
+| 決定論的閾値の tail | `uniform_deviation_tail_bound_countable_of_empirical_le` | `uniform_deviation_tail_bound_separable_of_empirical_le` |
+
 ## 4. サブプロジェクト B: $\ell_2$ 制約付き線形予測器
 
 実装は [`FoML/LinearPredictorL2.lean`](./lean-rademacher/FoML/LinearPredictorL2.lean)、公開 wrapper は `FoML/Main.lean` の
@@ -394,7 +409,10 @@ $$
 - `rademacher_sum_variance_zero`: `rademacher_orthogonality` により非対角交差項の符号平均が消える。
 - Cauchy--Schwarz により符号平均を二乗平均で抑え、符号直交性を使って最終的に $X\sqrt n$ で抑える。
 
-これは固定標本ごとの **経験** Rademacher complexity の定理であり、`rademacherComplexity` や generalization tail までを一つの定理として結合したものではない。
+`linear_predictor_l2_bound` は固定標本ごとの **経験** Rademacher complexity の定理である。これを上記 bridge へ接続した公開定理として、期待量の
+`linear_predictor_l2_rademacher_complexity_bound`、期待一様偏差の
+`linear_predictor_l2_uniform_deviation_expectation_bound`、高確率汎化評価の
+`linear_predictor_l2_uniform_deviation_tail_bound` がある。
 
 ## 5. サブプロジェクト C: $\ell_1/\ell_\infty$ 制約付き線形予測器
 
@@ -451,7 +469,10 @@ $$
 
 を示す。証明は、サイズ $2d$ の signed-coordinate class に `massart_lemma_pmf` を適用し、$\ell_1/\ell_\infty$ duality で元の線形クラスをそこへ帰着する。
 
-この定理も固定標本ごとの経験量である。
+`linear_predictor_l1_bound` 自体は固定標本ごとの経験量である。期待量と汎化評価まで接続した
+`linear_predictor_l1_rademacher_complexity_bound`,
+`linear_predictor_l1_uniform_deviation_expectation_bound`,
+`linear_predictor_l1_uniform_deviation_tail_bound` も公開されている。
 
 ## 6. サブプロジェクト D: Dudley entropy integral
 
@@ -530,6 +551,29 @@ $$
 
 を示す。ここで $N(u)$ は empirical pseudometric による関数クラス全体の被覆数である。
 
+絶対値付き経験量への接続には
+
+```lean
+signSymmetrization F
+```
+
+を用いる。これは各 $F_i$ と $-F_i$ を含むクラスであり、一様有界性の下で
+
+$$
+\widehat{\mathfrak R}_n(F;S)
+=
+\widehat{\mathfrak R}^{\mathrm{noabs}}_n
+  (\operatorname{signSymmetrization}(F);S)
+$$
+
+が `empiricalRademacherComplexity_eq_without_abs_signSymmetrization` により示される。経験ノルムと経験距離は負号で不変であり、`signSymmetrization_totallyBounded` が元のクラスの total boundedness を符号対称化後へ移す。その結果、
+`dudley_entropy_integral_abs` と公開 wrapper
+`dudley_entropy_integral_bound_abs` は、符号対称化したクラスの被覆数を用いて
+絶対値付き経験 Rademacher complexity を評価する。
+
+元のクラスが `IsNegClosed F` を満たす場合は
+`dudley_entropy_integral_bound_abs_of_neg_closed` により、クラスを拡大せず元の被覆数を使える。
+
 ## 7. `FoML/Main.lean` に集約された利用者向け宣言
 
 | 分類 | 宣言 |
@@ -538,12 +582,14 @@ $$
 | McDiarmid tail | `uniform_deviation_mcdiarmid_tail` |
 | 可算クラス | `uniform_deviation_tail_bound_countable`, `uniform_deviation_tail_bound_countable_of_pos` |
 | 稠密可算化 | `empiricalRademacherComplexity_eq`, `RademacherComplexity_eq`, `uniformDeviation_eq` |
+| 固定標本評価からの bridge | `rademacherComplexity_le_of_empirical_le_separable`, `uniform_deviation_tail_bound_separable_of_empirical_le` |
 | 可分クラス | `uniform_deviation_tail_bound_separable`, `uniform_deviation_tail_bound_separable_of_pos` |
-| $\ell_2$ 具体例 | `linear_predictor_l2_bound` |
-| $\ell_1$ 具体例 | `linear_predictor_l1_bound` |
-| Dudley | `dudley_entropy_integral_bound` |
+| $\ell_2$ 具体例 | `linear_predictor_l2_bound`, `linear_predictor_l2_rademacher_complexity_bound`, `linear_predictor_l2_uniform_deviation_tail_bound` |
+| $\ell_1$ 具体例 | `linear_predictor_l1_bound`, `linear_predictor_l1_rademacher_complexity_bound`, `linear_predictor_l1_uniform_deviation_tail_bound` |
+| Dudley | `dudley_entropy_integral_bound`, `dudley_entropy_integral_bound_abs` |
+| 一様 Dudley 評価からの接続 | `rademacher_complexity_le_dudley_of_uniform_entropy`, `uniform_deviation_tail_bound_separable_of_uniform_dudley` |
 
-最も再利用しやすい generalization theorem は、定数を最適化済みの `uniform_deviation_tail_bound_separable_of_pos` である。可算クラスなら `uniform_deviation_tail_bound_countable_of_pos` の仮定が軽い。
+抽象的な汎化定理としては、定数を最適化済みの `uniform_deviation_tail_bound_separable_of_pos` が再利用しやすい。固定標本の複雑度評価がある場合は `uniform_deviation_tail_bound_separable_of_empirical_le`、標本一様な Dudley entropy 評価がある場合は `uniform_deviation_tail_bound_separable_of_uniform_dudley` を使える。
 
 ## 8. ファイルごとの役割
 
@@ -573,20 +619,30 @@ $$
 
 ## 9. 現状の接続関係と注意点
 
-### 9.1 固定標本の具体例と generalization theorem はまだ別レイヤー
+### 9.1 固定標本の具体評価から汎化定理への接続
 
-汎化定理の右辺は標本について期待した `rademacherComplexity` である。一方、$\ell_2$, $\ell_1$, Dudley の定理は固定標本 $S$ に対する `empiricalRademacherComplexity` またはその片側版を評価する。固定標本で一様な上界なら積分して expected complexity の上界を得られるが、その接続を専用の corollary として package した宣言は `Main.lean` にはない。
+この接続は実装済みである。全標本に共通する
+`empiricalRademacherComplexity n f S ≤ C` を受け取る bridge により、期待
+Rademacher complexity、期待一様偏差、決定論的閾値の tail 評価を得られる。
+$\ell_2$ と $\ell_1/\ell_\infty$ の線形予測器については、経験評価から期待量・高確率汎化評価までを結合した専用定理も `Main.lean` に公開されている。
 
-### 9.2 Dudley 定理は片側版を評価する
+Dudley の右辺は一般には標本 $S$ に依存するため、接続定理
+`rademacher_complexity_le_dudley_of_uniform_entropy` と
+`uniform_deviation_tail_bound_separable_of_uniform_dudley` は、Dudley の norm 条件、total boundedness、および entropy integral の数値上界 $C$ が全標本で成立することを明示的に仮定する。経験複雑度そのものをランダムな閾値とする data-dependent tail 定理は、この API の対象外である。
 
-`dudley_entropy_integral_bound` の左辺は `empiricalRademacherComplexity_without_abs` である。現存する比較補題は
+### 9.2 Dudley の片側版と絶対値付き版
+
+従来の `dudley_entropy_integral_bound` の左辺は
+`empiricalRademacherComplexity_without_abs` である。比較補題
 
 $$
 \widehat{\mathfrak R}^{\mathrm{noabs}}_n
 \le \widehat{\mathfrak R}_n
 $$
 
-なので、Dudley の上界を絶対値付き complexity の上界としてそのまま代入することはできない。絶対値付き版を得るには、例えば関数クラスの符号対称化など、追加の議論が必要である。
+だけを逆向きに使うことはできない。この問題は符号対称化による等式と total boundedness の移送で解消され、
+`dudley_entropy_integral_bound_abs` が絶対値付き経験 Rademacher complexity を直接評価する。右辺の被覆数は `signSymmetrization F` に対するものである。`IsNegClosed F` の場合は
+`dudley_entropy_integral_bound_abs_of_neg_closed` により元のクラスの被覆数をそのまま使える。
 
 ### 9.3 $n=0$ と正値条件
 
@@ -599,6 +655,5 @@ README の future plans と現行 import graph から、少なくとも以下は
 - Lipschitz loss に対する contraction inequality。
 - RKHS の具体的な complexity bound。
 - Lipschitz 関数、ニューラルネットワーク等の具体的な covering-number estimate。
-- 線形予測器の経験 bound を generalization tail へ直接合成した end-to-end corollary。
 
-したがって現状のプロジェクトは、**汎化誤差の抽象パイプライン**と、そこへ将来投入できる **モデル別の経験 complexity 評価**を、それぞれ十分な共通基盤とともに形式化した構成になっている。
+したがって現状のプロジェクトは、**汎化誤差の抽象パイプライン**に加え、線形予測器と標本一様な Dudley entropy 評価については **経験評価から汎化評価までの接続**も形式化した構成になっている。

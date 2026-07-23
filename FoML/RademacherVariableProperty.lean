@@ -137,6 +137,132 @@ lemma empiricalRademacherComplexity_comp
       empiricalRademacherComplexity n g (q ∘ S) := by
   rfl
 
+/-- Add a negative copy of every function in a class. -/
+def signSymmetrization (F : ι → 𝒳 → ℝ) : ι × Bool → 𝒳 → ℝ :=
+  fun ib x ↦ if ib.2 then F ib.1 x else -F ib.1 x
+
+/-- A function class is closed under pointwise negation. -/
+def IsNegClosed (F : ι → 𝒳 → ℝ) : Prop :=
+  ∀ i, ∃ j, F j = -F i
+
+private lemma abs_normalized_signed_sum_le
+    (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳)
+    (C : ℝ) (sC : 0 ≤ C) (hC : ∀ i j, |f i (S j)| ≤ C)
+    (σ : Signs n) (i : ι) :
+    |(n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (S k)| ≤ C := by
+  by_cases hn : n = 0
+  · subst n
+    simpa using sC
+  have hn_pos : 0 < (n : ℝ) := Nat.cast_pos.mpr (Nat.pos_of_ne_zero hn)
+  rw [abs_mul, abs_of_pos (inv_pos.mpr hn_pos)]
+  calc
+    (n : ℝ)⁻¹ * |∑ k : Fin n, (σ k : ℝ) * f i (S k)|
+        ≤ (n : ℝ)⁻¹ * ∑ k : Fin n, |(σ k : ℝ) * f i (S k)| := by
+          gcongr
+          exact Finset.abs_sum_le_sum_abs
+            (fun k : Fin n ↦ (σ k : ℝ) * f i (S k)) Finset.univ
+    _ = (n : ℝ)⁻¹ * ∑ k : Fin n, |f i (S k)| := by
+          congr 1
+          apply Finset.sum_congr rfl
+          intro k _
+          rw [abs_mul, abs_sigma, one_mul]
+    _ ≤ (n : ℝ)⁻¹ * ∑ _k : Fin n, C := by
+          gcongr with k
+          exact hC i k
+    _ = C := by
+          simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+            nsmul_eq_mul]
+          field_simp
+
+/--
+Absolute empirical Rademacher complexity is the one-sided complexity of the
+class enlarged by pointwise negatives.
+-/
+lemma empiricalRademacherComplexity_eq_without_abs_signSymmetrization
+    [Nonempty ι] (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳)
+    (C : ℝ) (sC : 0 ≤ C) (hC : ∀ i j, |f i (S j)| ≤ C) :
+    empiricalRademacherComplexity n f S =
+      empiricalRademacherComplexity_without_abs n (signSymmetrization f) S := by
+  dsimp [empiricalRademacherComplexity, empiricalRademacherComplexity_without_abs]
+  congr 1
+  apply Finset.sum_congr rfl
+  intro σ _
+  let A : ι → ℝ :=
+    fun i ↦ (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (S k)
+  have hrewrite :
+      (fun ib : ι × Bool ↦
+        (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * signSymmetrization f ib (S k)) =
+        fun ib ↦ if ib.2 then A ib.1 else -A ib.1 := by
+    funext ib
+    rcases ib with ⟨i, b⟩
+    cases b <;> simp [signSymmetrization, A]
+  rw [hrewrite]
+  have hA : ∀ i, |A i| ≤ C :=
+    fun i ↦ abs_normalized_signed_sum_le n f S C sC hC σ i
+  have habs : BddAbove (Set.range fun i ↦ |A i|) :=
+    ⟨C, by rintro _ ⟨i, rfl⟩; exact hA i⟩
+  have hsym : BddAbove (Set.range fun ib : ι × Bool ↦
+      if ib.2 then A ib.1 else -A ib.1) := by
+    refine ⟨C, ?_⟩
+    rintro _ ⟨⟨i, b⟩, rfl⟩
+    cases b
+    · exact (neg_le_abs (A i)).trans (hA i)
+    · exact (le_abs_self (A i)).trans (hA i)
+  apply le_antisymm
+  · apply ciSup_le
+    intro i
+    rw [abs_eq_max_neg]
+    apply max_le
+    · simpa using
+        (le_ciSup hsym (i, true))
+    · simpa using
+        (le_ciSup hsym (i, false))
+  · apply ciSup_le
+    rintro ⟨i, b⟩
+    cases b
+    · exact (neg_le_abs (A i)).trans (le_ciSup habs i)
+    · exact (le_abs_self (A i)).trans (le_ciSup habs i)
+
+/--
+For a class closed under pointwise negation, absolute and one-sided empirical
+Rademacher complexity agree.
+-/
+lemma empiricalRademacherComplexity_eq_without_abs_of_neg_closed
+    [Nonempty ι] (f : ι → 𝒳 → ℝ) (S : Fin n → 𝒳)
+    (C : ℝ) (sC : 0 ≤ C) (hC : ∀ i j, |f i (S j)| ≤ C)
+    (hneg : IsNegClosed f) :
+    empiricalRademacherComplexity n f S =
+      empiricalRademacherComplexity_without_abs n f S := by
+  dsimp [empiricalRademacherComplexity, empiricalRademacherComplexity_without_abs]
+  congr 1
+  apply Finset.sum_congr rfl
+  intro σ _
+  let A : ι → ℝ :=
+    fun i ↦ (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (S k)
+  have hA : ∀ i, |A i| ≤ C :=
+    fun i ↦ abs_normalized_signed_sum_le n f S C sC hC σ i
+  have habs : BddAbove (Set.range fun i ↦ |A i|) :=
+    ⟨C, by rintro _ ⟨i, rfl⟩; exact hA i⟩
+  have hplain : BddAbove (Set.range A) :=
+    ⟨C, by rintro _ ⟨i, rfl⟩; exact (le_abs_self (A i)).trans (hA i)⟩
+  change (⨆ i, |A i|) = ⨆ i, A i
+  apply le_antisymm
+  · apply ciSup_le
+    intro i
+    obtain ⟨j, hj⟩ := hneg i
+    have hAj : A j = -A i := by
+      dsimp only [A]
+      rw [hj]
+      simp only [Pi.neg_apply, mul_neg, Finset.sum_neg_distrib]
+    rw [abs_eq_max_neg]
+    apply max_le
+    · exact le_ciSup hplain i
+    · rw [← hAj]
+      exact le_ciSup hplain j
+  · apply ciSup_le
+    intro i
+    exact (le_abs_self (A i)).trans (le_ciSup habs i)
+
 -- Equip with the discrete sigma-algebra
 noncomputable instance : MeasurableSpace (Signs n) := ⊤
 

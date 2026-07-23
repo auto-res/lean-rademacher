@@ -31,11 +31,25 @@ Key theorems (resp. definitions) are gathered in `Main.lean` (resp. `Defs.lean`)
 - `FoML.Main.uniform_deviation_mcdiarmid_tail`
   - McDiarmid inequality (for deviations)
 - `FoML.Main.linear_predictor_l2_bound`
-  - Example: Generalization error bound for ridge regression (linear regression with $L^2$-regularization) 
+  - Fixed-sample empirical Rademacher bound for $L^2$-regularized linear predictors
+- `FoML.Main.linear_predictor_l2_rademacher_complexity_bound`
+  - Expected Rademacher bound for the full $L^2$-bounded linear class
+- `FoML.Main.linear_predictor_l2_uniform_deviation_tail_bound`
+  - End-to-end high-probability uniform-deviation bound for the full $L^2$-bounded linear class
 - `FoML.Main.linear_predictor_l1_bound`
-  - Example: Generalization error bound for lasso regression (linear regression with $L^1$-regularization)
+  - Fixed-sample empirical Rademacher bound for $L^1$-regularized linear predictors
+- `FoML.Main.linear_predictor_l1_rademacher_complexity_bound`
+  - Expected Rademacher bound for the full $L^1$-bounded linear class
+- `FoML.Main.linear_predictor_l1_uniform_deviation_tail_bound`
+  - End-to-end high-probability uniform-deviation bound for the full $L^1$-bounded linear class
 - `FoML.Main.dudley_entropy_integral_bound`
-  - Dudley's entropy integral bound for Rademacher complexity
+  - Dudley's entropy integral bound for one-sided empirical Rademacher complexity
+- `FoML.Main.dudley_entropy_integral_bound_abs`
+  - Dudley's entropy integral bound for absolute empirical Rademacher complexity via sign symmetrization
+- `FoML.Main.rademacher_complexity_le_dudley_of_uniform_entropy`
+  - Expected Rademacher bound from a sample-uniform Dudley entropy estimate
+- `FoML.Main.uniform_deviation_tail_bound_separable_of_uniform_dudley`
+  - End-to-end high-probability uniform-deviation bound from a sample-uniform Dudley entropy estimate
 
 ### Future plans
 Contributors are always welcome! (Contact: [Discord](https://discord.gg/wdTpRCR8fW))

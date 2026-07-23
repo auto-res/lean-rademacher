@@ -18,6 +18,64 @@ variable {n m : ℕ} {ι : Type u} [Nonempty ι]
 variable {F : ι → Z → ℝ}
 variable {S : Fin m → Z}
 
+private def signSymmetrizationPosMap :
+    EmpiricalFunctionSpace F S →
+      EmpiricalFunctionSpace (signSymmetrization F) S :=
+  fun q ↦ ⟨(q.index, true)⟩
+
+private def signSymmetrizationNegMap :
+    EmpiricalFunctionSpace F S →
+      EmpiricalFunctionSpace (signSymmetrization F) S :=
+  fun q ↦ ⟨(q.index, false)⟩
+
+omit [Nonempty ι] in
+private lemma signSymmetrizationPosMap_isometry :
+    Isometry (signSymmetrizationPosMap (F := F) (S := S)) := by
+  apply Isometry.of_dist_eq
+  intro q r
+  rfl
+
+omit [Nonempty ι] in
+private lemma signSymmetrizationNegMap_isometry :
+    Isometry (signSymmetrizationNegMap (F := F) (S := S)) := by
+  apply Isometry.of_dist_eq
+  intro q r
+  exact empiricalDist_neg_neg S (F q.index) (F r.index)
+
+omit [Nonempty ι] in
+/-- Total boundedness is preserved when a class is enlarged by all of its negatives. -/
+theorem signSymmetrization_totallyBounded
+    (h : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) :
+    TotallyBounded
+      (Set.univ : Set (EmpiricalFunctionSpace (signSymmetrization F) S)) := by
+  have hpos :
+      TotallyBounded
+        (signSymmetrizationPosMap (F := F) (S := S) ''
+          (Set.univ : Set (EmpiricalFunctionSpace F S))) :=
+    h.image signSymmetrizationPosMap_isometry.uniformContinuous
+  have hneg :
+      TotallyBounded
+        (signSymmetrizationNegMap (F := F) (S := S) ''
+          (Set.univ : Set (EmpiricalFunctionSpace F S))) :=
+    h.image signSymmetrizationNegMap_isometry.uniformContinuous
+  rw [show
+    (Set.univ : Set (EmpiricalFunctionSpace (signSymmetrization F) S)) =
+      signSymmetrizationPosMap (F := F) (S := S) ''
+          (Set.univ : Set (EmpiricalFunctionSpace F S)) ∪
+        signSymmetrizationNegMap (F := F) (S := S) ''
+          (Set.univ : Set (EmpiricalFunctionSpace F S)) by
+    ext q
+    constructor
+    · intro _
+      rcases q with ⟨⟨i, b⟩⟩
+      cases b
+      · right
+        exact ⟨⟨i⟩, Set.mem_univ _, rfl⟩
+      · left
+        exact ⟨⟨i⟩, Set.mem_univ _, rfl⟩
+    · simp]
+  exact hpos.union hneg
+
 theorem term_le_total_sum_of_nonneg (m : ℕ) (j : Fin m) (f : Fin m → ℝ) (h0 : ∀ j, 0 ≤ f j) :
   f j ≤ ∑ i : Fin m, f i := by
   classical
@@ -1562,3 +1620,66 @@ theorem dudley_entropy_integral' {ε : ℝ} (ε_pos : 0 < ε) (h' : TotallyBound
       · simp
       · norm_cast
         simp
+
+omit [Nonempty ι] in
+private lemma abs_apply_le_mul_sqrt_of_empiricalNorm_le
+    (m_pos : 0 < m) (cs : ∀ i : ι, empiricalNorm S (F i) ≤ c)
+    (i : ι) (j : Fin m) :
+    |F i (S j)| ≤ c * Real.sqrt m := by
+  have hsqrt : 0 < Real.sqrt (m : ℝ) :=
+    Real.sqrt_pos.2 (Nat.cast_pos.mpr m_pos)
+  have hdiv : |F i (S j)| / Real.sqrt m ≤ c :=
+    (empiricalDist_proj S (F i) j).trans (cs i)
+  exact (div_le_iff₀ hsqrt).mp hdiv
+
+/--
+Absolute empirical Rademacher complexity satisfies Dudley's entropy-integral
+estimate after adjoining the pointwise negatives of the class.
+-/
+theorem dudley_entropy_integral_abs {ε : ℝ} (ε_pos : 0 < ε)
+    (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    (m_pos : 0 < m) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c)
+    (ε_le_c_div_2 : ε < c / 2) :
+    empiricalRademacherComplexity m F S ≤
+      (4 * ε + (12 / Real.sqrt m) *
+        (∫ (x : ℝ) in ε..(c / 2),
+          √(Real.log (coveringNumber
+            (signSymmetrization_totallyBounded (F := F) (S := S) h') x)))) := by
+  have c_pos : 0 < c := by linarith
+  have hsample : ∀ i j, |F i (S j)| ≤ c * Real.sqrt m :=
+    abs_apply_le_mul_sqrt_of_empiricalNorm_le m_pos cs
+  rw [empiricalRademacherComplexity_eq_without_abs_signSymmetrization
+    m F S (c * Real.sqrt m)
+    (mul_nonneg (le_of_lt c_pos) (Real.sqrt_nonneg _)) hsample]
+  apply dudley_entropy_integral'
+    (F := signSymmetrization F)
+    (h' := signSymmetrization_totallyBounded (F := F) (S := S) h')
+    ε_pos m_pos
+  · rintro ⟨i, b⟩
+    cases b
+    · change empiricalNorm S (-F i) ≤ c
+      simpa using cs i
+    · change empiricalNorm S (F i) ≤ c
+      exact cs i
+  · exact ε_le_c_div_2
+
+/--
+For a class closed under pointwise negation, Dudley's original covering
+numbers already estimate the absolute empirical Rademacher complexity.
+-/
+theorem dudley_entropy_integral_abs_of_neg_closed {ε : ℝ}
+    (ε_pos : 0 < ε)
+    (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    (m_pos : 0 < m) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c)
+    (ε_le_c_div_2 : ε < c / 2) (hneg : IsNegClosed F) :
+    empiricalRademacherComplexity m F S ≤
+      (4 * ε + (12 / Real.sqrt m) *
+        (∫ (x : ℝ) in ε..(c / 2),
+          √(Real.log (coveringNumber h' x)))) := by
+  have c_pos : 0 < c := by linarith
+  have hsample : ∀ i j, |F i (S j)| ≤ c * Real.sqrt m :=
+    abs_apply_le_mul_sqrt_of_empiricalNorm_le m_pos cs
+  rw [empiricalRademacherComplexity_eq_without_abs_of_neg_closed
+    m F S (c * Real.sqrt m)
+    (mul_nonneg (le_of_lt c_pos) (Real.sqrt_nonneg _)) hsample hneg]
+  exact dudley_entropy_integral' ε_pos h' m_pos cs ε_le_c_div_2
