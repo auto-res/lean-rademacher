@@ -18,6 +18,7 @@
 3. $\ell_2$ 線形予測器と $\ell_1/\ell_\infty$ 線形予測器について、経験複雑度評価から汎化評価までを接続した公開定理がある。
 4. Dudley entropy integral について、片側版の評価を絶対値付き経験 Rademacher 複雑度へ安全に移す定理がある。
 5. Dudley の標本依存な右辺に標本一様な上界を仮定した場合、それを期待 Rademacher 複雑度および汎化評価へ接続できる。
+6. 観測標本の経験 Rademacher 複雑度または Dudley entropy integral を、そのままランダムな閾値に残す高確率汎化評価がある。
 
 既存の Rademacher 複雑度の定義、定数、および既存定理の主張は変更せず、補題と系を追加する方針とする。
 
@@ -480,7 +481,7 @@ rademacher_complexity_le_dudley_of_uniform_entropy
 uniform_deviation_tail_bound_separable_of_uniform_dudley
 ```
 
-この段階では、経験 Rademacher 複雑度そのものをランダムな閾値に置く data-dependent tail 定理は扱わない。それには経験複雑度の bounded-difference 評価など、現在の「期待 Rademacher 複雑度を使う汎化定理」とは別の確率評価が必要になる。
+Phase 4 までの決定論的閾値版に続き、Phase 5 では経験 Rademacher 複雑度の bounded-difference 評価と下側集中を追加し、Dudley の右辺を観測標本に依存する閾値として残す。
 
 ## 8. 実装順
 
@@ -516,17 +517,29 @@ uniform_deviation_tail_bound_separable_of_uniform_dudley
 - [x] `README.md` の selected contents に新しい end-to-end 定理を追加する。
 - [x] `note/summary.md` の 9.1, 9.2 を、解消済みの宣言名と残る仮定に合わせて更新する。
 
+### Phase 5: 経験複雑度を使う標本依存 tail
+
+- [x] 経験 Rademacher 複雑度の一標本置換感度 $2b/n$ を証明する。
+- [x] McDiarmid の下側 tail に対する i.i.d. 積測度 wrapper を追加する。
+- [x] 経験 Rademacher 複雑度の下側集中を追加する。
+- [x] 可算クラスについて、観測標本の経験複雑度を閾値に残す高確率汎化評価を追加する。
+- [x] 可分クラス版へ移す。
+- [x] 観測標本上の Dudley entropy integral を閾値に残す高確率汎化評価を追加する。
+- [x] `README.md` と `note/summary.md` に標本依存経路と定数を反映する。
+
 ## 9. ファイルごとの変更予定
 
 | ファイル | 変更内容 |
 |---|---|
 | `FoML/RademacherVariableProperty.lean` | 非負性、定義域写像、符号対称化、絶対値付き版と片側版の等式 |
 | `FoML/Rademacher.lean` | 可測性・可積分性の整理、経験量上界から期待量上界への bridge |
+| `FoML/BoundedDifference.lean` | 一様偏差と経験 Rademacher 複雑度の有界差分評価 |
+| `FoML/McDiarmid.lean` | 下側 tail の i.i.d. 積測度 wrapper |
 | `FoML/PseudoMetric.lean` | `empiricalNorm` の負号不変性、必要なら符号対称化写像の距離補題 |
 | `FoML/LinearPredictorL2.lean` | 有界入力部分型上の線形予測器と経験評価 wrapper |
 | `FoML/LinearPredictorL1.lean` | `LinftyBall` 上の線形予測器と経験評価 wrapper |
 | `FoML/DudleyEntropy.lean` | total boundedness の移送、絶対値付き Dudley 定理 |
-| `FoML/Main.lean` | deterministic-threshold 汎化定理、線形予測器と Dudley の公開 corollary |
+| `FoML/Main.lean` | deterministic-threshold と sample-dependent の汎化定理、線形予測器と Dudley の公開 corollary |
 | `README.md`, `note/summary.md` | 新 API と接続関係の反映 |
 
 循環 import が生じる場合は、符号対称化の一般補題だけを新しい小さなファイルへ分離する。最初から大きな新規モジュールを作ることは避ける。

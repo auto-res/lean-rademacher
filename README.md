@@ -30,6 +30,10 @@ Key theorems (resp. definitions) are gathered in `Main.lean` (resp. `Defs.lean`)
   - Definition(s) of Rademacher complexity 
 - `FoML.Main.uniform_deviation_mcdiarmid_tail`
   - McDiarmid inequality (for deviations)
+- `FoML.Main.empiricalRademacherComplexity_lower_tail_countable_of_pos`
+  - Lower-tail concentration of empirical Rademacher complexity
+- `FoML.Main.uniform_deviation_tail_bound_separable_of_empirical_complexity`
+  - Data-dependent high-probability uniform-deviation bound using the empirical Rademacher complexity of the observed sample
 - `FoML.Main.linear_predictor_l2_bound`
   - Fixed-sample empirical Rademacher bound for $L^2$-regularized linear predictors
 - `FoML.Main.linear_predictor_l2_rademacher_complexity_bound`
@@ -50,6 +54,8 @@ Key theorems (resp. definitions) are gathered in `Main.lean` (resp. `Defs.lean`)
   - Expected Rademacher bound from a sample-uniform Dudley entropy estimate
 - `FoML.Main.uniform_deviation_tail_bound_separable_of_uniform_dudley`
   - End-to-end high-probability uniform-deviation bound from a sample-uniform Dudley entropy estimate
+- `FoML.Main.uniform_deviation_tail_bound_separable_of_dudley`
+  - Data-dependent high-probability uniform-deviation bound using Dudley's entropy integral on the observed sample
 
 ### Future plans
 Contributors are always welcome! (Contact: [Discord](https://discord.gg/wdTpRCR8fW))

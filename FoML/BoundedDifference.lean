@@ -269,3 +269,128 @@ theorem uniformDeviation_measurable [Countable ι] [MeasurableSpace 𝒳]
     Measurable (uniformDeviation n f μ X) :=
   .iSup fun i ↦ ((measurable_const.mul (Finset.univ.measurable_sum fun j _ ↦
     (hf i).comp (measurable_pi_apply j))).add_const (-∫ (x : Ω), (fun ω' ↦ f i (X ω')) x ∂μ)).abs
+
+/--
+Replacing one observation changes absolute empirical Rademacher complexity by
+at most `2 * b / n` for a class bounded in absolute value by `b`.
+-/
+theorem empiricalRademacherComplexity_bounded_difference
+    [Nonempty ι]
+    (hn : 0 < n) {b : ℝ}
+    (hf' : ∀ i, ∀ z : 𝒳, |f i z| ≤ b)
+    (j : Fin n) (S : Fin n → 𝒳) (x' : 𝒳) :
+    |empiricalRademacherComplexity n f S -
+      empiricalRademacherComplexity n f (Function.update S j x')| ≤
+      (n : ℝ)⁻¹ * 2 * b := by
+  classical
+  let A (σ : Signs n) (i : ι) :=
+    (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (S k)
+  let B (σ : Signs n) (i : ι) :=
+    (n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (Function.update S j x' k)
+  have hn' : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
+  have hnorm :
+      ∀ (T : Fin n → 𝒳) (σ : Signs n) (i : ι),
+        |(n : ℝ)⁻¹ * ∑ k : Fin n, (σ k : ℝ) * f i (T k)| ≤ b := by
+    intro T σ i
+    rw [abs_mul, abs_of_pos (inv_pos.mpr hn')]
+    calc
+      (n : ℝ)⁻¹ * |∑ k : Fin n, (σ k : ℝ) * f i (T k)|
+          ≤ (n : ℝ)⁻¹ * ∑ k : Fin n, |(σ k : ℝ) * f i (T k)| := by
+            gcongr
+            exact Finset.abs_sum_le_sum_abs
+              (fun k : Fin n ↦ (σ k : ℝ) * f i (T k)) Finset.univ
+      _ = (n : ℝ)⁻¹ * ∑ k : Fin n, |f i (T k)| := by
+            congr 1
+            apply Finset.sum_congr rfl
+            intro k _
+            rw [abs_mul, abs_sigma, one_mul]
+      _ ≤ (n : ℝ)⁻¹ * ∑ _k : Fin n, b := by
+            gcongr with k
+            exact hf' i (T k)
+      _ = b := by
+            simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+              nsmul_eq_mul]
+            field_simp
+  have hpoint :
+      ∀ (σ : Signs n) (i : ι), |A σ i - B σ i| ≤ (n : ℝ)⁻¹ * 2 * b := by
+    intro σ i
+    have hsum :
+        ∑ k : Fin n,
+            ((σ k : ℝ) * f i (S k) -
+              (σ k : ℝ) * f i (Function.update S j x' k)) =
+          (σ j : ℝ) * (f i (S j) - f i x') := by
+      rw [Finset.sum_eq_single j]
+      · simp [Function.update, mul_sub]
+      · intro k _ hkj
+        simp [Function.update, hkj]
+      · simp
+    calc
+      |A σ i - B σ i| =
+          |(n : ℝ)⁻¹ * ∑ k : Fin n,
+            ((σ k : ℝ) * f i (S k) -
+              (σ k : ℝ) * f i (Function.update S j x' k))| := by
+            simp only [A, B, ← mul_sub, ← Finset.sum_sub_distrib]
+      _ = (n : ℝ)⁻¹ * |f i (S j) - f i x'| := by
+            rw [hsum, abs_mul, abs_mul, abs_of_pos (inv_pos.mpr hn'), abs_sigma,
+              one_mul]
+      _ ≤ (n : ℝ)⁻¹ * (|f i (S j)| + |f i x'|) := by
+            gcongr
+            exact abs_sub (f i (S j)) (f i x')
+      _ ≤ (n : ℝ)⁻¹ * (b + b) := by
+            gcongr
+            · exact hf' i (S j)
+            · exact hf' i x'
+      _ = (n : ℝ)⁻¹ * 2 * b := by ring
+  have hsup :
+      ∀ σ : Signs n,
+        |((⨆ i, |A σ i|) - (⨆ i, |B σ i|))| ≤ (n : ℝ)⁻¹ * 2 * b := by
+    intro σ
+    have hAbdd : BddAbove (Set.range fun i ↦ |A σ i|) :=
+      ⟨b, by
+        rintro _ ⟨i, rfl⟩
+        exact hnorm S σ i⟩
+    have hBbdd : BddAbove (Set.range fun i ↦ |B σ i|) :=
+      ⟨b, by
+        rintro _ ⟨i, rfl⟩
+        exact hnorm (Function.update S j x') σ i⟩
+    apply abs_sub_le_iff.mpr
+    constructor
+    · rw [ciSup_sub hAbdd]
+      apply ciSup_le
+      intro i
+      calc
+        |A σ i| - ⨆ i, |B σ i| ≤ |A σ i| - |B σ i| := by
+          gcongr
+          exact le_ciSup hBbdd i
+        _ ≤ |A σ i - B σ i| := abs_sub_abs_le_abs_sub (A σ i) (B σ i)
+        _ ≤ (n : ℝ)⁻¹ * 2 * b := hpoint σ i
+    · rw [ciSup_sub hBbdd]
+      apply ciSup_le
+      intro i
+      calc
+        |B σ i| - ⨆ i, |A σ i| ≤ |B σ i| - |A σ i| := by
+          gcongr
+          exact le_ciSup hAbdd i
+        _ ≤ |B σ i - A σ i| := abs_sub_abs_le_abs_sub (B σ i) (A σ i)
+        _ = |A σ i - B σ i| := abs_sub_comm (B σ i) (A σ i)
+        _ ≤ (n : ℝ)⁻¹ * 2 * b := hpoint σ i
+  dsimp only [empiricalRademacherComplexity]
+  rw [← mul_sub, ← Finset.sum_sub_distrib, abs_mul]
+  have hcard : 0 < (Fintype.card (Signs n) : ℝ) := by
+    rw [Signs.card]
+    positivity
+  rw [abs_of_pos (inv_pos.mpr hcard)]
+  calc
+    (Fintype.card (Signs n) : ℝ)⁻¹ *
+        |∑ σ : Signs n,
+          ((⨆ i, |A σ i|) - (⨆ i, |B σ i|))|
+        ≤ (Fintype.card (Signs n) : ℝ)⁻¹ *
+            ∑ σ : Signs n, |((⨆ i, |A σ i|) - (⨆ i, |B σ i|))| := by
+          gcongr
+          exact Finset.abs_sum_le_sum_abs
+            (fun σ : Signs n ↦ (⨆ i, |A σ i|) - (⨆ i, |B σ i|)) Finset.univ
+    _ ≤ (Fintype.card (Signs n) : ℝ)⁻¹ *
+          ∑ _σ : Signs n, ((n : ℝ)⁻¹ * 2 * b) := by
+          gcongr with σ
+          exact hsup σ
+    _ = (n : ℝ)⁻¹ * 2 * b := by simp

@@ -14,3 +14,7 @@
   - 評価
   - not 境界
 
+## summary.md
+- グラフは mermaid で描く
+- \boxed は使わない
+- def は型だけでなく項まで書く

@@ -1054,3 +1054,19 @@ theorem mcdiarmid_inequality_pos'
   have hX : ∀ i, Measurable (X i) := fun i ↦ by measurability
   have hX' : iIndepFun X μⁿ := pi_comp_eval_iIndepFun hX''
   exact mcdiarmid_inequality_pos X hX hX' hfι hf'' hε ht'
+
+theorem mcdiarmid_inequality_neg'
+  {X' : Ω → 𝓧} (hX'' : Measurable X')
+  {f' : (ι → 𝓧) → ℝ}
+  {c' : ι → ℝ}
+  (hfι : ∀ (i : ι) (x : ι → 𝓧) (x' : 𝓧), |f' x - f' (Function.update x i x')| ≤ c' i)
+  (hf'' : Measurable f')
+  {ε : ℝ} (hε : ε ≥ 0)
+  {t : ℝ} (ht' : t * ∑ i, (c' i) ^ 2 ≤ 1) :
+  (μⁿ (fun ω : ι → Ω ↦ (f' (X' ∘ ω)) -
+    μⁿ[fun ω : ι → Ω ↦ f' (X' ∘ ω)] ≤ -ε)).toReal ≤
+    (-2 * ε ^ 2 * t).exp := by
+  let X : ι → (ι → Ω) → 𝓧 := fun i ω ↦ X' (ω i)
+  have hX : ∀ i, Measurable (X i) := fun i ↦ by measurability
+  have hX' : iIndepFun X μⁿ := pi_comp_eval_iIndepFun hX''
+  exact mcdiarmid_inequality_neg X hX hX' f' c' hfι hf'' _ hε _ ht'

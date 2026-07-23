@@ -91,6 +91,77 @@ theorem uniform_deviation_mcdiarmid_tail
         (uniformDeviation_measurable X hf) hε ht'
     _ = _ := congr_arg _ (by ring)
 
+/--
+Lower-tail concentration of empirical Rademacher complexity around its
+expectation.  Equivalently, this controls the event that expected Rademacher
+complexity exceeds the observed empirical complexity by at least `ε`.
+-/
+theorem empiricalRademacherComplexity_lower_tail_countable
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b : ℝ} (hf' : ∀ i x, |f i x| ≤ b)
+    {t : ℝ} (ht' : t * b ^ 2 ≤ 1 / 2)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω : Fin n → Ω ↦
+      empiricalRademacherComplexity n f (X ∘ ω) -
+        rademacherComplexity n f μ X ≤ -ε)).toReal ≤
+      (-ε ^ 2 * t * n).exp := by
+  by_cases hn : n = 0
+  · simpa [hn] using measureReal_le_one
+  have hn : 0 < n := Nat.pos_of_ne_zero hn
+  let c : Fin n → ℝ := fun _i ↦ (n : ℝ)⁻¹ * 2 * b
+  have ht'' : (n : ℝ) * t / 2 * ∑ i, (c i) ^ 2 ≤ 1 := by
+    apply le_of_mul_le_mul_left _ (show (0 : ℝ) < 1 / 2 from by linarith)
+    calc
+      _ = t * b ^ 2 := by
+        simp only [c, Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+          nsmul_eq_mul]
+        field_simp
+      _ ≤ _ := by linarith
+  calc
+    _ ≤ (-2 * ε ^ 2 * ((n : ℝ) * t / 2)).exp := by
+      simpa only [rademacherComplexity] using
+        (mcdiarmid_inequality_neg'
+          (μ := μ) (ι := Fin n) (X' := X)
+          (f' := fun S : Fin n → 𝒳 ↦ empiricalRademacherComplexity n f S)
+          (c' := c) hX
+          (empiricalRademacherComplexity_bounded_difference
+            (n := n) (f := f) hn hf')
+          (measurable_empiricalRademacherComplexity_comp
+            (Ω := 𝒳) (Z := 𝒳) (n := n) (f := f) (X := id)
+            (fun i ↦ by simpa using hf i))
+          hε ht'')
+    _ = _ := congr_arg _ (by ring)
+
+/--
+Optimized lower-tail concentration of empirical Rademacher complexity, with
+`t = 1 / (2 * b^2)`.
+-/
+theorem empiricalRademacherComplexity_lower_tail_countable_of_pos
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b : ℝ} (hb : 0 < b) (hf' : ∀ i x, |f i x| ≤ b)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω : Fin n → Ω ↦
+      empiricalRademacherComplexity n f (X ∘ ω) -
+        rademacherComplexity n f μ X ≤ -ε)).toReal ≤
+      (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+  let t := 1 / (2 * b ^ 2)
+  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by
+    dsimp only [t]
+    field_simp)
+  calc
+    _ ≤ (-ε ^ 2 * t * n).exp :=
+      empiricalRademacherComplexity_lower_tail_countable
+        (μ := μ) f hf X hX hf' ht' hε
+    _ = _ := by
+      dsimp only [t]
+      field_simp
+
 /-- (Main Theorem) Countable-class tail bound via symmetrization and McDiarmid's inequality. -/
 theorem uniform_deviation_tail_bound_countable
     [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι] [IsProbabilityMeasure μ]
@@ -164,6 +235,66 @@ theorem uniform_deviation_tail_bound_countable_of_empirical_le
     mul_le_mul_of_nonneg_left hRC (by norm_num)
   norm_num at hω htwo ⊢
   linarith
+
+/--
+Sample-dependent countable-class tail bound.  The threshold contains the
+empirical Rademacher complexity of the observed sample itself.
+
+The constant `3 * ε` comes from combining the upper tail of uniform deviation
+with the lower tail of empirical Rademacher complexity.
+-/
+theorem uniform_deviation_tail_bound_countable_of_empirical_complexity
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b : ℝ} (hb : 0 < b) (hf' : ∀ i x, |f i x| ≤ b)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω : Fin n → Ω ↦
+      2 • empiricalRademacherComplexity n f (X ∘ ω) + 3 * ε ≤
+        uniformDeviation n f μ X (X ∘ ω))).toReal ≤
+      2 * (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+  let A : Set (Fin n → Ω) :=
+    {ω | 2 • rademacherComplexity n f μ X + ε ≤
+      uniformDeviation n f μ X (X ∘ ω)}
+  let B : Set (Fin n → Ω) :=
+    {ω | empiricalRademacherComplexity n f (X ∘ ω) -
+      rademacherComplexity n f μ X ≤ -ε}
+  have hsubset :
+      {ω : Fin n → Ω |
+        2 • empiricalRademacherComplexity n f (X ∘ ω) + 3 * ε ≤
+          uniformDeviation n f μ X (X ∘ ω)} ⊆ A ∪ B := by
+    intro ω hω
+    simp only [Set.mem_setOf_eq] at hω
+    simp only [Set.mem_union, Set.mem_setOf_eq, A, B]
+    by_cases hA :
+        2 • rademacherComplexity n f μ X + ε ≤
+          uniformDeviation n f μ X (X ∘ ω)
+    · exact Or.inl hA
+    · right
+      simp only [not_le] at hA
+      simp only [nsmul_eq_mul] at hω hA ⊢
+      norm_num at hω hA ⊢
+      linarith
+  calc
+    _ ≤ (μⁿ).real (A ∪ B) := measureReal_mono hsubset
+    _ ≤ (μⁿ).real A + (μⁿ).real B := measureReal_union_le A B
+    _ ≤ (-ε ^ 2 * n / (2 * b ^ 2)).exp +
+          (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+      apply add_le_add
+      · exact uniform_deviation_tail_bound_countable_of_pos
+          (μ := μ) f hf X hX hb hf' hε
+      · exact empiricalRademacherComplexity_lower_tail_countable_of_pos
+          (μ := μ) f hf X hX hb hf' hε
+    _ ≤ 2 * (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+      have heq :
+          (-ε ^ 2 * n / (2 * b ^ 2)).exp +
+              (-ε ^ 2 * n / (2 * b ^ 2)).exp =
+            2 * (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+        ring
+      exact heq.le
+    _ ≤ _ := le_rfl
+  all_goals exact le_rfl
 
 open TopologicalSpace
 
@@ -362,6 +493,43 @@ theorem uniform_deviation_tail_bound_separable_of_empirical_le
     mul_le_mul_of_nonneg_left hRC (by norm_num)
   norm_num at hω htwo ⊢
   linarith
+
+/--
+Sample-dependent separable-class tail bound.  The observed empirical
+Rademacher complexity is preserved in the threshold.
+-/
+theorem uniform_deviation_tail_bound_separable_of_empirical_complexity
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
+    [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b : ℝ} (hb : 0 < b) (hf' : ∀ i x, |f i x| ≤ b)
+    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω : Fin n → Ω ↦
+      2 • empiricalRademacherComplexity n f (X ∘ ω) + 3 * ε ≤
+        uniformDeviation n f μ X (X ∘ ω))).toReal ≤
+      2 * (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+  let f' := f ∘ denseSeq ι
+  calc
+    _ = (μⁿ (fun ω : Fin n → Ω ↦
+        2 • empiricalRademacherComplexity n f' (X ∘ ω) + 3 * ε ≤
+          uniformDeviation n f' μ X (X ∘ ω))).toReal := by
+      congr
+      ext ω
+      change
+        (2 • empiricalRademacherComplexity n f (X ∘ ω) + 3 * ε ≤
+          uniformDeviation n f μ X (X ∘ ω)) ↔
+        (2 • empiricalRademacherComplexity n f' (X ∘ ω) + 3 * ε ≤
+          uniformDeviation n f' μ X (X ∘ ω))
+      rw [empiricalRademacherComplexity_eq n hf'' (X ∘ ω)]
+      rw [uniformDeviation_eq n f hf X hX hf' hf'' μ]
+    _ ≤ 2 * (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+      exact uniform_deviation_tail_bound_countable_of_empirical_complexity
+        (μ := μ) f' (fun i ↦ hf (denseSeq ι i)) X hX hb
+        (fun i x ↦ hf' (denseSeq ι i) x) hε
+  all_goals exact le_rfl
 
 local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
 
@@ -683,5 +851,63 @@ theorem uniform_deviation_tail_bound_separable_of_uniform_dudley
     exact (dudley_entropy_integral_bound_abs
       α_pos (htb S) n_pos (hnorm S) α_lt_c_div_2).trans (hentropy S)
   · exact hε
+
+/--
+Sample-dependent Dudley generalization bound for a separable class.
+
+Unlike `uniform_deviation_tail_bound_separable_of_uniform_dudley`, the
+entropy integral is evaluated on the observed sample and remains in the
+random threshold; no sample-uniform deterministic entropy bound is required.
+-/
+theorem uniform_deviation_tail_bound_separable_of_dudley
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
+    [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
+    [IsProbabilityMeasure μ]
+    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b c α : ℝ} (hb : 0 < b) (hf_bound : ∀ i x, |f i x| ≤ b)
+    (hf_cont : ∀ x : 𝒳, Continuous fun i ↦ f i x)
+    (n_pos : 0 < n) (α_pos : 0 < α) (α_lt_c_div_2 : α < c / 2)
+    (htb : ∀ S : Fin n → 𝒳,
+      TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace f S)))
+    (hnorm : ∀ (S : Fin n → 𝒳) (i : ι), empiricalNorm S (f i) ≤ c)
+    {ε : ℝ} (hε : 0 ≤ ε) :
+    (μⁿ (fun ω : Fin n → Ω ↦
+      2 •
+          (4 * α + (12 / Real.sqrt n) *
+            (∫ (x : ℝ) in α..(c / 2),
+              √(Real.log (coveringNumber
+                (signSymmetrization_totallyBounded
+                  (F := f) (S := X ∘ ω) (htb (X ∘ ω))) x)))) +
+        3 * ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
+      2 * (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+  apply le_trans (measureReal_mono ?_)
+    (uniform_deviation_tail_bound_separable_of_empirical_complexity
+      (μ := μ) f hf X hX hb hf_bound hf_cont hε)
+  intro ω hω
+  change
+    2 •
+        (4 * α + (12 / Real.sqrt n) *
+          (∫ (x : ℝ) in α..(c / 2),
+            √(Real.log (coveringNumber
+              (signSymmetrization_totallyBounded
+                (F := f) (S := X ∘ ω) (htb (X ∘ ω))) x)))) +
+      3 * ε ≤ uniformDeviation n f μ X (X ∘ ω) at hω
+  change
+    2 • empiricalRademacherComplexity n f (X ∘ ω) + 3 * ε ≤
+      uniformDeviation n f μ X (X ∘ ω)
+  have hdudley :
+      empiricalRademacherComplexity n f (X ∘ ω) ≤
+        4 * α + (12 / Real.sqrt n) *
+          (∫ (x : ℝ) in α..(c / 2),
+            √(Real.log (coveringNumber
+              (signSymmetrization_totallyBounded
+                (F := f) (S := X ∘ ω) (htb (X ∘ ω))) x))) :=
+    dudley_entropy_integral_bound_abs
+      α_pos (htb (X ∘ ω)) n_pos (hnorm (X ∘ ω)) α_lt_c_div_2
+  simp only [nsmul_eq_mul] at hω ⊢
+  have htwo := mul_le_mul_of_nonneg_left hdudley (show (0 : ℝ) ≤ 2 by norm_num)
+  norm_num at hω htwo ⊢
+  linarith
 
 end
