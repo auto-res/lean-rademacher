@@ -2,6 +2,10 @@ import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import Mathlib.Probability.Independence.Basic
 import Mathlib.MeasureTheory.Constructions.Pi
 
+/-!
+# Finite product probability measures
+-/
+
 open MeasureTheory ProbabilityTheory
 
 theorem pi_map_eval {ι: Type*} {Ω : ι → Type*} [Fintype ι] [DecidableEq ι]

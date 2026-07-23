@@ -1,8 +1,8 @@
 import FoML.Defs
-import FoML.MaximalInequality
-import FoML.RademacherVariableProperty
-import FoML.Symmetrization
-import FoML.MeasurePiLemmas
+import FoML.Entropy.MaximalInequality
+import FoML.Rademacher.Signs
+import FoML.Rademacher.Symmetrization
+import FoML.Probability.MeasurePi
 
 universe v u
 open scoped BigOperators

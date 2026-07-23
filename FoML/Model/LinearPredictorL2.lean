@@ -1,6 +1,6 @@
 import Mathlib.Analysis.InnerProductSpace.PiL2
-import FoML.Symmetrization
-import FoML.RademacherVariableProperty
+import FoML.Rademacher.Symmetrization
+import FoML.Rademacher.Signs
 
 universe v
 

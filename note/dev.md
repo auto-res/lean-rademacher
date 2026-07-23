@@ -35,7 +35,8 @@ Dudley を活かすため， empirical Rademacher に対する高確率汎化評
 Main.lean には，UD を Rademacher で押さえる基本定理も掲載してください．いくつかバージョンがありますが，可分・高確率・経験Rademacherの組を例として挙げてください．
 
 - FoML 配下のファイルが多くなってきたので，適当なサブディレクトリに分けてください． Main.lean や Defs.lean などは一番外側でよいです．
-- RKHS の場合
-- empirical risk minimization の場合
-を追加してください
 
+以下について，まず計画を立ててください:
+- RKHS の場合（Mohri, Theorem 6.12）を実装したいです．
+- 被複数を具体化してDudleyを評価する例がほしいです．
+- 損失関数、ERM、余剰誤差まで含む評価を実装したいです．

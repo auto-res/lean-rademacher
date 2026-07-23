@@ -1,6 +1,6 @@
-import FoML.ExpectationInequalities
-import FoML.Hoeffding
-import FoML.MeasurePiLemmas
+import FoML.Probability.Expectation
+import FoML.Probability.Hoeffding
+import FoML.Probability.MeasurePi
 import Mathlib.Tactic.Cases
 
 open MeasureTheory ProbabilityTheory

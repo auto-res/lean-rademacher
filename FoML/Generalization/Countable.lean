@@ -1,6 +1,6 @@
-import FoML.Rademacher
-import FoML.McDiarmid
-import FoML.BoundedDifference
+import FoML.Rademacher.Expectation
+import FoML.Probability.McDiarmid
+import FoML.Rademacher.BoundedDifference
 import FoML.ForMathlib.MeasureTheory.Measure.Real
 
 /-!
@@ -15,7 +15,7 @@ The main bridge combines
   bound.
 
 Separable classes and confidence-parameter forms are developed in
-`FoML.SeparableGeneralization` and `FoML.Confidence`.
+`FoML.Generalization.Separable` and `FoML.Generalization.Confidence`.
 -/
 
 section

@@ -1,11 +1,11 @@
-import FoML.SeparableGeneralization
+import FoML.Generalization.Separable
 import FoML.ForMathlib.Probability.Confidence
 
 /-!
 # Confidence-parameter generalization bounds
 
-This module turns the `ε`-tail bounds from `FoML.Generalization` and
-`FoML.SeparableGeneralization` into statements with failure probability
+This module turns the `ε`-tail bounds from `FoML.Generalization.Countable` and
+`FoML.Generalization.Separable` into statements with failure probability
 `0 < δ ≤ 1`.
 -/
 

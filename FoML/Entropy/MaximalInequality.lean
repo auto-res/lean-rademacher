@@ -3,7 +3,7 @@ import Mathlib.Probability.Notation
 import Mathlib.Probability.Independence.Basic
 import Mathlib.Analysis.Convex.Integral
 import Mathlib.Probability.Independence.Integration
-import FoML.Hoeffding
+import FoML.Probability.Hoeffding
 import FoML.Defs
 
 open MeasureTheory ProbabilityTheory Real

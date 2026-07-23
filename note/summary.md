@@ -6,7 +6,7 @@
 
 ## 0. 対象と現在の到達点
 
-この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。抽象的な汎化定理は [`FoML/Generalization.lean`](../FoML/Generalization.lean)、[`FoML/SeparableGeneralization.lean`](../FoML/SeparableGeneralization.lean)、[`FoML/Confidence.lean`](../FoML/Confidence.lean) に分割されている。[`FoML/Main.lean`](../FoML/Main.lean) は主要な利用例を繰り返す入口、[`FoML.lean`](../FoML.lean) はライブラリ全体の入口である。
+この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。抽象的な汎化定理は [`FoML/Generalization/Countable.lean`](../FoML/Generalization/Countable.lean)、[`FoML/Generalization/Separable.lean`](../FoML/Generalization/Separable.lean)、[`FoML/Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) に分割されている。[`FoML/Main.lean`](../FoML/Main.lean) は主要な利用例を繰り返す入口、[`FoML.lean`](../FoML.lean) はライブラリ全体の入口である。
 
 現在の実装は、次の六つの経路を一つの公開 API として接続している。
 
@@ -29,26 +29,26 @@
 ```mermaid
 flowchart LR
     defs["Defs"]
-    symm["Symmetrization"]
-    rademacher["Rademacher"]
-    rademacherProperty["RademacherVariableProperty"]
-    reindex["RademacherReindex"]
-    mcdiarmid["McDiarmid"]
-    boundedDiff["BoundedDifference"]
+    symm["Rademacher/<br/>Symmetrization"]
+    rademacher["Rademacher/<br/>Expectation"]
+    rademacherProperty["Rademacher/<br/>Signs"]
+    reindex["Rademacher/<br/>Reindex"]
+    mcdiarmid["Probability/<br/>McDiarmid"]
+    boundedDiff["Rademacher/<br/>BoundedDifference"]
     finiteSample["ForMathlib/Analysis/<br/>FiniteSample"]
     iSupBridge["ForMathlib/Order/<br/>ISup"]
     measureBridge["ForMathlib/MeasureTheory/<br/>Measure/Real"]
     topologyBridge["ForMathlib/Topology/<br/>SeparableSpace"]
     confidenceCalc["ForMathlib/Probability/<br/>Confidence"]
-    generalization["Generalization<br/>可算クラス"]
-    separableGen["SeparableGeneralization<br/>可分クラス"]
-    confidence["Confidence<br/>δ 形式"]
-    linearL2["LinearPredictorL2"]
-    linearL1["LinearPredictorL1"]
-    dudley["DudleyEntropy"]
-    l2Gen["LinearPredictorL2<br/>Generalization"]
-    l1Gen["LinearPredictorL1<br/>Generalization"]
-    dudleyGen["DudleyGeneralization"]
+    generalization["Generalization/<br/>Countable"]
+    separableGen["Generalization/<br/>Separable"]
+    confidence["Generalization/<br/>Confidence"]
+    linearL2["Model/<br/>LinearPredictorL2"]
+    linearL1["Model/<br/>LinearPredictorL1"]
+    dudley["Entropy/<br/>Dudley"]
+    l2Gen["Generalization/<br/>LinearPredictorL2"]
+    l1Gen["Generalization/<br/>LinearPredictorL1"]
+    dudleyGen["Generalization/<br/>Dudley"]
     main["Main"]
 
     defs --> symm
@@ -83,6 +83,23 @@ flowchart LR
     dudleyGen --> main
     reindex --> main
 ```
+
+ソースファイルは依存層ごとに次のディレクトリへ分けている。
+
+```text
+FoML/
+├── Defs.lean
+├── Main.lean
+├── Probability/      # 積測度、期待値補題、Hoeffding、McDiarmid
+├── Rademacher/       # 符号、対称化、期待量、有界差分、reindex
+├── Entropy/          # 被覆数、経験擬距離、Massart、Dudley
+├── Model/            # 個別の仮説クラス
+├── Generalization/   # 可算・可分 bridge、信頼度形式、個別 E2E
+└── ForMathlib/       # 統計的学習理論に依存しない補助補題
+```
+
+直下に残す Lean ファイルは中心定義の `Defs.lean` と公開例の `Main.lean`
+だけである。ライブラリ全体の入口は従来通りリポジトリ直下の `FoML.lean` である。
 
 ## 1. 共通の設定と中心定義
 
@@ -140,7 +157,7 @@ $\varphi=\operatorname{id}$ の特殊化である。この対応は
 `empiricalRademacherFunctional_abs` と
 `empiricalRademacherFunctional_id` で明示される。
 
-`RademacherVariableProperty.lean` には PMF 版も
+`Rademacher/Signs.lean` には PMF 版も
 
 ```lean
 noncomputable def empiricalRademacherFunctional_pmf
@@ -259,7 +276,7 @@ $$
 
 ### 2.1 積測度の座標分布と独立性
 
-[`FoML/MeasurePiLemmas.lean`](../FoML/MeasurePiLemmas.lean) は有限積測度について次を提供する。
+[`FoML/Probability/MeasurePi.lean`](../FoML/Probability/MeasurePi.lean) は有限積測度について次を提供する。
 
 | 宣言 | 内容 |
 |---|---|
@@ -271,7 +288,7 @@ $$
 
 ### 2.2 符号反転、直交性、PMF 表現
 
-[`FoML/RademacherVariableProperty.lean`](../FoML/RademacherVariableProperty.lean) の主要な基盤は以下である。
+[`FoML/Rademacher/Signs.lean`](../FoML/Rademacher/Signs.lean) の主要な基盤は以下である。
 
 | 宣言 | 内容 |
 |---|---|
@@ -298,7 +315,7 @@ $$
 
 ### 2.3 指数傾斜と Hoeffding の補題
 
-[`FoML/ExpectationInequalities.lean`](../FoML/ExpectationInequalities.lean) は、一様なノルム上界から期待値のノルム上界を得る補題を提供する。
+[`FoML/Probability/Expectation.lean`](../FoML/Probability/Expectation.lean) は、一様なノルム上界から期待値のノルム上界を得る補題を提供する。
 
 [`FoML/ForMathlib/Probability/Moments.lean`](../FoML/ForMathlib/Probability/Moments.lean) は Mathlib の補完層として、次を形式化する。
 
@@ -307,7 +324,7 @@ $$
 - MGF と tilted expectation の微分公式。
 - cumulant generating function の一階・二階微分。
 
-これを用いて [`FoML/Hoeffding.lean`](../FoML/Hoeffding.lean) は `ProbabilityTheory.hoeffding` を示す。$\mathbb E X=0$ かつ $a\le X\le b$ がほとんど至る所で成立するとき、
+これを用いて [`FoML/Probability/Hoeffding.lean`](../FoML/Probability/Hoeffding.lean) は `ProbabilityTheory.hoeffding` を示す。$\mathbb E X=0$ かつ $a\le X\le b$ がほとんど至る所で成立するとき、
 
 $$
 \operatorname{mgf}_X(t)
@@ -319,7 +336,7 @@ $$
 
 ### 2.4 McDiarmid の不等式
 
-[`FoML/McDiarmid.lean`](../FoML/McDiarmid.lean) は、独立性と反復積分から McDiarmid の不等式を構成する。
+[`FoML/Probability/McDiarmid.lean`](../FoML/Probability/McDiarmid.lean) は、独立性と反復積分から McDiarmid の不等式を構成する。
 
 独立な確率変数族 $X_i$ と有界差分条件
 
@@ -355,7 +372,7 @@ $\sum_i c^2=|\iota|c^2$ を再展開する必要がない。
 
 ### 3.1 Symmetrization
 
-[`FoML/Symmetrization.lean`](../FoML/Symmetrization.lean) の中心は
+[`FoML/Rademacher/Symmetrization.lean`](../FoML/Rademacher/Symmetrization.lean) の中心は
 
 ```lean
 symmetrization_equation
@@ -385,7 +402,7 @@ $$
 
 ### 3.2 期待一様偏差
 
-[`FoML/Rademacher.lean`](../FoML/Rademacher.lean) の
+[`FoML/Rademacher/Expectation.lean`](../FoML/Rademacher/Expectation.lean) の
 
 ```lean
 expectation_le_rademacher
@@ -407,7 +424,7 @@ $$
 
 を示す。
 
-[`FoML/Generalization.lean`](../FoML/Generalization.lean) の公開定理
+[`FoML/Generalization/Countable.lean`](../FoML/Generalization/Countable.lean) の公開定理
 
 ```lean
 uniform_deviation_expectation_le_two_smul_rademacher_complexity
@@ -426,7 +443,7 @@ $$
 
 ### 3.3 一様偏差の有界差分性
 
-[`FoML/BoundedDifference.lean`](../FoML/BoundedDifference.lean) の
+[`FoML/Rademacher/BoundedDifference.lean`](../FoML/Rademacher/BoundedDifference.lean) の
 
 ```lean
 uniformDeviation_bounded_difference
@@ -589,7 +606,7 @@ noncomputable abbrev denseRestriction
   F ∘ denseSeq H
 ```
 
-[`FoML/SeparableGeneralization.lean`](../FoML/SeparableGeneralization.lean) は、この項へ制限しても以下の量が変わらないことを示す。
+[`FoML/Generalization/Separable.lean`](../FoML/Generalization/Separable.lean) は、この項へ制限しても以下の量が変わらないことを示す。
 
 | 宣言 | 対象 |
 |---|---|
@@ -617,7 +634,7 @@ uniform_deviation_tail_bound_separable_of_sample_empirical_le_delta
 
 ### 4.1 経験複雑度の可測性と可積分性
 
-[`FoML/Rademacher.lean`](../FoML/Rademacher.lean) には次が実装されている。
+[`FoML/Rademacher/Expectation.lean`](../FoML/Rademacher/Expectation.lean) には次が実装されている。
 
 | 宣言 | 内容 |
 |---|---|
@@ -643,7 +660,7 @@ $$
 
 ### 4.2 決定論的閾値を使う公開定理
 
-`FoML/Generalization.lean` と `FoML/SeparableGeneralization.lean` は、固定標本で一様な評価を期待一様偏差と tail 評価へ直接渡す。
+`FoML/Generalization/Countable.lean` と `FoML/Generalization/Separable.lean` は、固定標本で一様な評価を期待一様偏差と tail 評価へ直接渡す。
 
 | 対象 | 可算クラス | 可分クラス |
 |---|---|---|
@@ -679,7 +696,7 @@ $$
 
 という形を持つ。ここで $C$ は経験 Rademacher 複雑度の全標本一様上界、$b$ は関数値の一様上界であり、役割が異なる。
 
-[`FoML/Confidence.lean`](../FoML/Confidence.lean) の
+[`FoML/Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) の
 `uniform_deviation_tail_bound_separable_of_empirical_le_delta` は信頼度を直接受け取り、$n>0$, $b>0$, $0<\delta\le1$ の下で
 
 $$
@@ -776,7 +793,7 @@ $$
 
 ### 5.1 関数クラス
 
-[`FoML/LinearPredictorL2.lean`](../FoML/LinearPredictorL2.lean) の
+[`FoML/Model/LinearPredictorL2.lean`](../FoML/Model/LinearPredictorL2.lean) の
 
 ```lean
 noncomputable def linearPredictorL2
@@ -852,7 +869,7 @@ $$
 
 ### 5.3 期待量と高確率汎化評価
 
-[`FoML/LinearPredictorL2Generalization.lean`](../FoML/LinearPredictorL2Generalization.lean) は次を公開する。
+[`FoML/Generalization/LinearPredictorL2.lean`](../FoML/Generalization/LinearPredictorL2.lean) は次を公開する。
 
 | 宣言 | 結論 |
 |---|---|
@@ -908,7 +925,7 @@ $$
 
 ### 6.1 幾何学的な定義
 
-[`FoML/LinearPredictorL1.lean`](../FoML/LinearPredictorL1.lean) は次を定義する。
+[`FoML/Model/LinearPredictorL1.lean`](../FoML/Model/LinearPredictorL1.lean) は次を定義する。
 
 | 宣言 | 内容 |
 |---|---|
@@ -962,10 +979,10 @@ $$
 
 ### 6.2 Maximal inequality と Massart の補題
 
-[`FoML/MaximalInequality.lean`](../FoML/MaximalInequality.lean) の
+[`FoML/Entropy/MaximalInequality.lean`](../FoML/Entropy/MaximalInequality.lean) の
 `ProbabilityTheory.maximal_inequality_supR` は、有限個の独立な中心化和に対する expected maximum の評価を与える。
 
-[`FoML/Massart.lean`](../FoML/Massart.lean) の `massart_lemma_pmf` は、有限クラス $J$ の片側経験 Rademacher 複雑度を
+[`FoML/Entropy/Massart.lean`](../FoML/Entropy/Massart.lean) の `massart_lemma_pmf` は、有限クラス $J$ の片側経験 Rademacher 複雑度を
 
 $$
 \max_{j\in J}
@@ -1011,7 +1028,7 @@ $$
 
 を示す。
 
-[`FoML/LinearPredictorL1Generalization.lean`](../FoML/LinearPredictorL1Generalization.lean) の公開定理は次の通りである。
+[`FoML/Generalization/LinearPredictorL1.lean`](../FoML/Generalization/LinearPredictorL1.lean) の公開定理は次の通りである。
 
 | 宣言 | 結論 |
 |---|---|
@@ -1076,7 +1093,7 @@ $$
 
 ### 7.1 経験擬距離
 
-[`FoML/PseudoMetric.lean`](../FoML/PseudoMetric.lean) は
+[`FoML/Entropy/PseudoMetric.lean`](../FoML/Entropy/PseudoMetric.lean) は
 
 ```lean
 noncomputable def empiricalNorm
@@ -1119,7 +1136,7 @@ empiricalDist_neg_neg
 
 ### 7.2 被覆数
 
-[`FoML/CoveringNumber.lean`](../FoML/CoveringNumber.lean) は、全有界な集合 $A$ と正の半径 $\varepsilon$ に対し、有限 $\varepsilon$-cover の最小要素数を定義する。
+[`FoML/Entropy/CoveringNumber.lean`](../FoML/Entropy/CoveringNumber.lean) は、全有界な集合 $A$ と正の半径 $\varepsilon$ に対し、有限 $\varepsilon$-cover の最小要素数を定義する。
 
 | 宣言 | 内容 |
 |---|---|
@@ -1135,7 +1152,7 @@ empiricalDist_neg_neg
 
 ### 7.3 片側版 Dudley 評価
 
-[`FoML/DudleyEntropy.lean`](../FoML/DudleyEntropy.lean) の chaining は次の流れで構成される。
+[`FoML/Entropy/Dudley.lean`](../FoML/Entropy/Dudley.lean) の chaining は次の流れで構成される。
 
 1. dyadic radius $e_j=c/2^j$ を取る。
 2. 各スケールで `coveringFinset` から近似 `coverApprox` を選ぶ。
@@ -1290,7 +1307,7 @@ $$
 
 ### 7.6 観測標本上の entropy integral を使う汎化評価
 
-[`FoML/DudleyGeneralization.lean`](../FoML/DudleyGeneralization.lean) は、繰り返し現れる右辺を次の項として定義する。
+[`FoML/Generalization/Dudley.lean`](../FoML/Generalization/Dudley.lean) は、繰り返し現れる右辺を次の項として定義する。
 
 ```lean
 noncomputable def dudleyEntropyEstimate
@@ -1362,7 +1379,7 @@ $$
 
 ## 8. 公開 API とモジュール配置
 
-`FoML/Main.lean` は以下の API を import した上で、汎用 bridge、二種類の線形予測器、Dudley entropy integral の主要な使い方を `example` として繰り返す。抽象定理の実装は `Generalization.lean`、`SeparableGeneralization.lean`、`Confidence.lean`、個別応用は各 `*Generalization.lean` に置かれている。
+`FoML/Main.lean` は以下の API を import した上で、汎用 bridge、二種類の線形予測器、Dudley entropy integral の主要な使い方を `example` として繰り返す。抽象定理と個別応用の実装は `Generalization/`、固定標本上の個別モデルは `Model/`、Dudley の固定標本評価は `Entropy/` に置かれている。
 
 ### 8.1 抽象的な汎化定理
 
@@ -1396,7 +1413,7 @@ $$
 
 ### 8.3 仮説添字の reindex
 
-[`FoML/RademacherReindex.lean`](../FoML/RademacherReindex.lean) は、関数クラスを
+[`FoML/Rademacher/Reindex.lean`](../FoML/Rademacher/Reindex.lean) は、関数クラスを
 添字写像 $e:G\to H$ に沿って引き戻す操作を扱う。
 
 | 分類 | 宣言 |
@@ -1598,8 +1615,8 @@ $$
 | ファイル | 主な役割 |
 |---|---|
 | [`Defs.lean`](../FoML/Defs.lean) | 符号、二種類の経験 Rademacher 複雑度、期待 Rademacher 複雑度、一様偏差。 |
-| [`MeasurePiLemmas.lean`](../FoML/MeasurePiLemmas.lean) | 積測度の座標分布と独立性。 |
-| [`ExpectationInequalities.lean`](../FoML/ExpectationInequalities.lean) | 一様上界から期待値上界を得る補助定理。 |
+| [`Probability/MeasurePi.lean`](../FoML/Probability/MeasurePi.lean) | 積測度の座標分布と独立性。 |
+| [`Probability/Expectation.lean`](../FoML/Probability/Expectation.lean) | 一様上界から期待値上界を得る補助定理。 |
 | [`ForMathlib/Probability/Moments.lean`](../FoML/ForMathlib/Probability/Moments.lean) | exponential tilting、MGF/CGF 微分、分散評価。 |
 | [`ForMathlib/Analysis/FiniteSample.lean`](../FoML/ForMathlib/Analysis/FiniteSample.lean) | 正規化有限和の一様評価と一座標置換に対する感度評価。 |
 | [`ForMathlib/Analysis/SumIntegralComparisons.lean`](../FoML/ForMathlib/Analysis/SumIntegralComparisons.lean) | 単調な分割列に沿う左 Riemann 和と反単調関数の積分の比較。 |
@@ -1607,30 +1624,31 @@ $$
 | [`ForMathlib/MeasureTheory/Measure/Real.lean`](../FoML/ForMathlib/MeasureTheory/Measure/Real.lean) | superlevel 事象の単調性、中心化 tail と平均上界から非中心化 tail への変換。 |
 | [`ForMathlib/Probability/Confidence.lean`](../FoML/ForMathlib/Probability/Confidence.lean) | 一般の前係数 $\kappa$ を持つ信頼半径と指数関数の計算。 |
 | [`ForMathlib/Topology/SeparableSpace.lean`](../FoML/ForMathlib/Topology/SeparableSpace.lean) | 可分空間上の上限、`denseRestriction`、可測性・有界性の transfer。 |
-| [`Hoeffding.lean`](../FoML/Hoeffding.lean) | Hoeffding の補題。 |
-| [`McDiarmid.lean`](../FoML/McDiarmid.lean) | 一般版・下側版と、それぞれの i.i.d. 積測度版 McDiarmid。 |
-| [`Symmetrization.lean`](../FoML/Symmetrization.lean) | ghost sample と Rademacher 符号による symmetrization。 |
-| [`Rademacher.lean`](../FoML/Rademacher.lean) | 期待一様偏差評価、経験量の可測性・可積分性、固定標本評価から期待量への接続。 |
-| [`RademacherReindex.lean`](../FoML/RademacherReindex.lean) | 仮説添字写像に対する経験量の単調性と、全射に対する経験量・期待量・一様偏差の不変性。 |
-| [`BoundedDifference.lean`](../FoML/BoundedDifference.lean) | 一様偏差と経験 Rademacher 複雑度の感度 $2b/n$、一様偏差の可測性。 |
-| [`SeparableSpaceSup.lean`](../FoML/SeparableSpaceSup.lean) | 旧 import path を保つ互換モジュール。実装は `ForMathlib/Topology/SeparableSpace.lean`。 |
-| [`Generalization.lean`](../FoML/Generalization.lean) | 可算クラスの期待評価、中心化 tail、経験複雑度の下側集中、決定論的・標本依存しきい値の bridge。 |
-| [`SeparableGeneralization.lean`](../FoML/SeparableGeneralization.lean) | `denseRestriction` による可分クラスへの移送と可分クラス用 bridge。 |
-| [`Confidence.lean`](../FoML/Confidence.lean) | 決定論的・標本依存評価の $\delta$ 形式。 |
-| [`RademacherVariableProperty.lean`](../FoML/RademacherVariableProperty.lean) | 符号の直交性、共通 functional の PMF bridge、符号対称化、負号閉性。 |
-| [`MaximalInequality.lean`](../FoML/MaximalInequality.lean) | 有限個の sub-Gaussian 和の expected maximum。 |
-| [`Massart.lean`](../FoML/Massart.lean) | PMF 版 Massart finite-class lemma。 |
-| [`LinearPredictorL2.lean`](../FoML/LinearPredictorL2.lean) | $\ell_2$ 線形予測器、標本の二乗ノルムを残す経験評価、その一様半径版。 |
-| [`LinearPredictorL1.lean`](../FoML/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器、座標ごとの標本二乗和を残す経験評価、その一様半径版。 |
-| [`LinearPredictorL2Generalization.lean`](../FoML/LinearPredictorL2Generalization.lean) | $\ell_2$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
-| [`LinearPredictorL1Generalization.lean`](../FoML/LinearPredictorL1Generalization.lean) | $\ell_1/\ell_\infty$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
-| [`CoveringNumber.lean`](../FoML/CoveringNumber.lean) | 被覆数と最小被覆有限集合。 |
-| [`PseudoMetric.lean`](../FoML/PseudoMetric.lean) | 経験ノルム、経験擬距離、関数空間。 |
-| [`DudleyEntropy.lean`](../FoML/DudleyEntropy.lean) | chaining、entropy integral、符号対称化後の全有界性、絶対値付き Dudley 評価。 |
-| [`DudleyGeneralization.lean`](../FoML/DudleyGeneralization.lean) | `dudleyEntropyEstimate` と、Dudley 評価から期待量・高確率汎化評価への接続。 |
+| [`Probability/Hoeffding.lean`](../FoML/Probability/Hoeffding.lean) | Hoeffding の補題。 |
+| [`Probability/McDiarmid.lean`](../FoML/Probability/McDiarmid.lean) | 一般版・下側版と、それぞれの i.i.d. 積測度版 McDiarmid。 |
+| [`Rademacher/Symmetrization.lean`](../FoML/Rademacher/Symmetrization.lean) | ghost sample と Rademacher 符号による symmetrization。 |
+| [`Rademacher/Signs.lean`](../FoML/Rademacher/Signs.lean) | 符号の直交性、共通 functional の PMF bridge、符号対称化、負号閉性。 |
+| [`Rademacher/Expectation.lean`](../FoML/Rademacher/Expectation.lean) | 期待一様偏差評価、経験量の可測性・可積分性、固定標本評価から期待量への接続。 |
+| [`Rademacher/Reindex.lean`](../FoML/Rademacher/Reindex.lean) | 仮説添字写像に対する経験量の単調性と、全射に対する経験量・期待量・一様偏差の不変性。 |
+| [`Rademacher/BoundedDifference.lean`](../FoML/Rademacher/BoundedDifference.lean) | 一様偏差と経験 Rademacher 複雑度の感度 $2b/n$、一様偏差の可測性。 |
+| [`Generalization/Countable.lean`](../FoML/Generalization/Countable.lean) | 可算クラスの期待評価、中心化 tail、経験複雑度の下側集中、決定論的・標本依存しきい値の bridge。 |
+| [`Generalization/Separable.lean`](../FoML/Generalization/Separable.lean) | `denseRestriction` による可分クラスへの移送と可分クラス用 bridge。 |
+| [`Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) | 決定論的・標本依存評価の $\delta$ 形式。 |
+| [`Entropy/MaximalInequality.lean`](../FoML/Entropy/MaximalInequality.lean) | 有限個の sub-Gaussian 和の expected maximum。 |
+| [`Entropy/Massart.lean`](../FoML/Entropy/Massart.lean) | PMF 版 Massart finite-class lemma。 |
+| [`Entropy/CoveringNumber.lean`](../FoML/Entropy/CoveringNumber.lean) | 被覆数と最小被覆有限集合。 |
+| [`Entropy/PseudoMetric.lean`](../FoML/Entropy/PseudoMetric.lean) | 経験ノルム、経験擬距離、関数空間。 |
+| [`Entropy/Dudley.lean`](../FoML/Entropy/Dudley.lean) | chaining、entropy integral、符号対称化後の全有界性、絶対値付き Dudley 評価。 |
+| [`Model/LinearPredictorL2.lean`](../FoML/Model/LinearPredictorL2.lean) | $\ell_2$ 線形予測器、標本の二乗ノルムを残す経験評価、その一様半径版。 |
+| [`Model/LinearPredictorL1.lean`](../FoML/Model/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器、座標ごとの標本二乗和を残す経験評価、その一様半径版。 |
+| [`Generalization/LinearPredictorL2.lean`](../FoML/Generalization/LinearPredictorL2.lean) | $\ell_2$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
+| [`Generalization/LinearPredictorL1.lean`](../FoML/Generalization/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器の期待評価と決定論的・標本依存 E2E 評価。 |
+| [`Generalization/Dudley.lean`](../FoML/Generalization/Dudley.lean) | `dudleyEntropyEstimate` と、Dudley 評価から期待量・高確率汎化評価への接続。 |
 | [`Main.lean`](../FoML/Main.lean) | 数式入り docstring と `example` による汎用 bridge、線形予測器、Dudley の主要な利用例。 |
 
-旧実装と重複していた `FoML/WIP/RademacherProperty.lean` は削除した。現行の公開経路では [`FoML/RademacherVariableProperty.lean`](../FoML/RademacherVariableProperty.lean) を参照する。
+旧実装と重複していた `FoML/WIP/RademacherProperty.lean` は削除した。現行の公開経路では [`FoML/Rademacher/Signs.lean`](../FoML/Rademacher/Signs.lean) を参照する。
+また、`ForMathlib/Topology/SeparableSpace.lean` を import するだけだった旧
+`FoML/SeparableSpaceSup.lean` も、モジュール階層の整理に合わせて削除した。
 
 実数の二倍は、自然数スカラー倍 `2 • C` ではなく統計的学習理論の式に近い
 `2 * C` に統一した。`MassartNotation` の未使用 envelope、線形予測器の未使用
@@ -1643,8 +1661,9 @@ CRLF または混在改行も LF へ正規化済みである。
 
 ## 11. 検証状態
 
-2026-07-24 時点で、Phase 8 の functional、reindex、定数感度 McDiarmid、
-有界差分の整理を含む全体 `lake build` は成功している。`import FoML.Main` から、
+2026-07-24 時点で、Phase 9 のモジュール階層整理まで含む全体 `lake build` は
+成功している。`FoML` 直下は `Defs.lean` と `Main.lean` の二つである。
+`import FoML.Main` から、
 `MeasureTheory` 名前空間の測度 bridge、信頼半径、新しい汎化 bridge、
 `denseRestriction`、reindex API、両線形クラスの E2E 評価、
 `dudleyEntropyEstimate` と Dudley の信頼度形式を参照できる。`FoML` 以下に

@@ -4,6 +4,10 @@ import Mathlib.Data.Finset.Basic
 import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 
+/-!
+# Covering numbers for totally bounded sets
+-/
+
 open Classical
 
 lemma coveringNumber_exists {X : Type*} {A : Set X} [PseudoMetricSpace X] (ha : TotallyBounded A) {ε : ℝ} (εpos: ε > 0):

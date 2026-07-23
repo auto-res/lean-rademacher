@@ -4,9 +4,9 @@ import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.Probability.Notation
 import Mathlib.Algebra.Order.Group.CompleteLattice
 import Mathlib.MeasureTheory.Order.Group.Lattice
-import FoML.Symmetrization
-import FoML.MeasurePiLemmas
-import FoML.RademacherVariableProperty
+import FoML.Rademacher.Symmetrization
+import FoML.Probability.MeasurePi
+import FoML.Rademacher.Signs
 
 open MeasureTheory ProbabilityTheory Real
 open scoped ENNReal

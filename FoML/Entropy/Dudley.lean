@@ -1,7 +1,7 @@
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
 import FoML.Defs
-import FoML.PseudoMetric
-import FoML.Massart
+import FoML.Entropy.PseudoMetric
+import FoML.Entropy.Massart
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Algebra.Order.Group.CompleteLattice
 import Mathlib.Data.Set.Finite.Basic

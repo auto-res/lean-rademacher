@@ -1,6 +1,6 @@
 import Mathlib.Analysis.InnerProductSpace.PiL2
-import FoML.Massart
-import FoML.RademacherVariableProperty
+import FoML.Entropy.Massart
+import FoML.Rademacher.Signs
 
 universe v
 

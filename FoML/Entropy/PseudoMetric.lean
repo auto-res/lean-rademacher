@@ -1,4 +1,4 @@
-import FoML.CoveringNumber
+import FoML.Entropy.CoveringNumber
 
 universe v
 open scoped BigOperators

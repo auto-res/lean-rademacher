@@ -1,10 +1,10 @@
-import FoML.Confidence
-import FoML.LinearPredictorL1
+import FoML.Generalization.Confidence
+import FoML.Model.LinearPredictorL1
 
 /-!
 # Generalization bounds for `ℓ₁/ℓ∞` linear predictors
 
-This module connects the fixed-sample estimates in `FoML.LinearPredictorL1`
+This module connects the fixed-sample estimates in `FoML.Model.LinearPredictorL1`
 to expected and high-probability uniform-deviation bounds.
 -/
 

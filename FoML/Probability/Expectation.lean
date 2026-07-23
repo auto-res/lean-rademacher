@@ -4,6 +4,9 @@ import Mathlib.MeasureTheory.Measure.Typeclasses.Finite
 import Mathlib.Probability.Independence.Basic
 import Mathlib.MeasureTheory.Integral.Prod
 
+/-!
+# Elementary expectation inequalities
+-/
 
 open MeasureTheory ProbabilityTheory
 

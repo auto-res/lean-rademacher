@@ -9,7 +9,7 @@ import FoML.ForMathlib.Probability.Moments
 /-!
 # Hoeffding's lemma
 
-This file states Hoeffding's lemma.
+This module states Hoeffding's lemma.
 
 ## Main results
 

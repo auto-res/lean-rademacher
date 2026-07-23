@@ -1,5 +1,5 @@
-import FoML.Confidence
-import FoML.DudleyEntropy
+import FoML.Generalization.Confidence
+import FoML.Entropy.Dudley
 
 /-!
 # Dudley entropy estimates and generalization bounds

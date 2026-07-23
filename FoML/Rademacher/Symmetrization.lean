@@ -3,7 +3,7 @@ import Mathlib.MeasureTheory.Integral.Prod
 import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.Probability.Notation
 import Mathlib.Tactic.Cases
-import FoML.ExpectationInequalities
+import FoML.Probability.Expectation
 import FoML.Defs
 
 open MeasureTheory ProbabilityTheory Real

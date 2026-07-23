@@ -24,9 +24,9 @@ Understanding and certifying the generalization performance of machine learning 
 
 ## Contents (selected)
 `Main.lean` imports the public API and gives end-to-end examples.  The
-abstract bounds are implemented in `Generalization.lean`,
-`SeparableGeneralization.lean`, and `Confidence.lean`; model-specific
-corollaries live in the corresponding `*Generalization.lean` files.
+abstract bounds are implemented in `Generalization/Countable.lean`,
+`Generalization/Separable.lean`, and `Generalization/Confidence.lean`;
+model-specific corollaries live in the same `Generalization/` directory.
 Core definitions remain in `Defs.lean`.  Selected declarations include:
 - `uniform_deviation_tail_bound_separable`
   - (Main Theorem) Generalization error bound using Rademacher complexity

@@ -1,5 +1,5 @@
 import FoML.Defs
-import FoML.Symmetrization
+import FoML.Rademacher.Symmetrization
 import Mathlib.Probability.ProbabilityMassFunction.Basic
 import Mathlib.Probability.Distributions.Uniform
 import Mathlib.Probability.ProbabilityMassFunction.Integrals

@@ -1,4 +1,4 @@
-import FoML.Rademacher
+import FoML.Rademacher.Expectation
 import FoML.ForMathlib.Analysis.FiniteSample
 import FoML.ForMathlib.Order.ISup
 

@@ -109,7 +109,7 @@ sup_i |A i| = sup_(i,s) s * A i
 
 ### 3.1 経験 Rademacher 複雑度の基本補題
 
-`FoML/RademacherVariableProperty.lean` に以下を追加する。
+`FoML/Rademacher/Signs.lean` に以下を追加する。
 
 1. 非負性
 
@@ -154,7 +154,7 @@ sup_i |A i| = sup_(i,s) s * A i
 
 ### 3.2 経験量から期待量への共通 bridge
 
-`FoML/Rademacher.lean` に次の二段階の補題を追加する。
+`FoML/Rademacher/Expectation.lean` に次の二段階の補題を追加する。
 
 1. a.e. の上界を積分する一般形
 
@@ -243,7 +243,7 @@ uniform_deviation_tail_bound_separable_of_pos
 
 ### 5.1 $\ell_2$ 線形予測器
 
-`FoML/LinearPredictorL2.lean` に、入力と重みの両方を有界球の部分型として受け取る関数と経験評価 wrapper を追加する。
+`FoML/Model/LinearPredictorL2.lean` に、入力と重みの両方を有界球の部分型として受け取る関数と経験評価 wrapper を追加する。
 
 候補名:
 
@@ -309,7 +309,7 @@ P(2 * (X * W / sqrt n) + ε ≤ uniformDeviation)
 
 ### 5.2 $\ell_1/\ell_\infty$ 線形予測器
 
-`FoML/LinearPredictorL1.lean` に次を追加する。
+`FoML/Model/LinearPredictorL1.lean` に次を追加する。
 
 ```lean
 linearPredictorL1
@@ -361,7 +361,7 @@ b = Xinf * W
 
 ### 6.1 符号対称化の定義と等式
 
-`FoML/RademacherVariableProperty.lean` に、例えば
+`FoML/Rademacher/Signs.lean` に、例えば
 
 ```lean
 def signSymmetrization (F : ι → 𝒳 → ℝ) :
@@ -399,7 +399,7 @@ empiricalRademacherComplexity_eq_without_abs_of_neg_closed
 
 ### 6.2 empirical norm と total boundedness の移送
 
-`FoML/PseudoMetric.lean` または `FoML/DudleyEntropy.lean` に以下を追加する。
+`FoML/Entropy/PseudoMetric.lean` または `FoML/Entropy/Dudley.lean` に以下を追加する。
 
 1. `empiricalNorm S (-f) = empiricalNorm S f`
 2. 正側・負側の
@@ -417,7 +417,7 @@ signSymmetrization_totallyBounded
 
 ### 6.3 絶対値付き Dudley 定理
 
-`FoML/DudleyEntropy.lean` に内部定理、`FoML/Main.lean` に公開 wrapper を追加する。
+`FoML/Entropy/Dudley.lean` に内部定理、`FoML/Main.lean` に公開 wrapper を追加する。
 
 候補名:
 
@@ -543,14 +543,14 @@ Phase 4 までの決定論的閾値版に続き、Phase 5 では経験 Rademache
 
 | ファイル | 変更内容 |
 |---|---|
-| `FoML/RademacherVariableProperty.lean` | 非負性、定義域写像、符号対称化、絶対値付き版と片側版の等式 |
-| `FoML/Rademacher.lean` | 可測性・可積分性の整理、経験量上界から期待量上界への bridge |
-| `FoML/BoundedDifference.lean` | 一様偏差と経験 Rademacher 複雑度の有界差分評価 |
-| `FoML/McDiarmid.lean` | 下側 tail の i.i.d. 積測度 wrapper |
-| `FoML/PseudoMetric.lean` | `empiricalNorm` の負号不変性、必要なら符号対称化写像の距離補題 |
-| `FoML/LinearPredictorL2.lean` | 有界入力部分型上の線形予測器と経験評価 wrapper |
-| `FoML/LinearPredictorL1.lean` | `LinftyBall` 上の線形予測器と経験評価 wrapper |
-| `FoML/DudleyEntropy.lean` | total boundedness の移送、絶対値付き Dudley 定理 |
+| `FoML/Rademacher/Signs.lean` | 非負性、定義域写像、符号対称化、絶対値付き版と片側版の等式 |
+| `FoML/Rademacher/Expectation.lean` | 可測性・可積分性の整理、経験量上界から期待量上界への bridge |
+| `FoML/Rademacher/BoundedDifference.lean` | 一様偏差と経験 Rademacher 複雑度の有界差分評価 |
+| `FoML/Probability/McDiarmid.lean` | 下側 tail の i.i.d. 積測度 wrapper |
+| `FoML/Entropy/PseudoMetric.lean` | `empiricalNorm` の負号不変性、必要なら符号対称化写像の距離補題 |
+| `FoML/Model/LinearPredictorL2.lean` | 有界入力部分型上の線形予測器と経験評価 wrapper |
+| `FoML/Model/LinearPredictorL1.lean` | `LinftyBall` 上の線形予測器と経験評価 wrapper |
+| `FoML/Entropy/Dudley.lean` | total boundedness の移送、絶対値付き Dudley 定理 |
 | `FoML/Main.lean` | deterministic-threshold と sample-dependent の汎化定理、線形予測器と Dudley の公開 corollary |
 | `README.md`, `note/summary.md` | 新 API と接続関係の反映 |
 
@@ -711,7 +711,7 @@ $$
 \sqrt{\sum_{k=1}^n\|S_k\|_2^2}
 $$
 
-を `FoML/LinearPredictorL2.lean` に切り出す。
+を `FoML/Model/LinearPredictorL2.lean` に切り出す。
 
 候補名:
 
@@ -886,7 +886,7 @@ Rademacher 複雑度、汎化評価、個別モデルに依存する定理はそ
 
 ### 13.3 可算クラスの汎化評価
 
-- [x] `FoML/Generalization.lean` を作り、可算クラスの期待値評価、
+- [x] `FoML/Generalization/Countable.lean` を作り、可算クラスの期待値評価、
   McDiarmid 評価、決定論的・標本依存しきい値の bridge を移す。
 - [x] `uniform_deviation_expectation_le_of_rademacher_le` を追加する。
 - [x] `uniform_deviation_tail_bound_countable_of_rademacher_le` を追加する。
@@ -908,19 +908,19 @@ Rademacher 複雑度、汎化評価、個別モデルに依存する定理はそ
 - [x] 経験 Rademacher 複雑度、期待 Rademacher 複雑度、一様偏差の
   `denseRestriction` による不変性を個別の bridge として追加する。
 - [x] 可測性・一様有界性の transfer 補題を追加する。
-- [x] `FoML/SeparableGeneralization.lean` を作り、可分クラスの定理を移す。
+- [x] `FoML/Generalization/Separable.lean` を作り、可分クラスの定理を移す。
 - [x] `RademacherComplexity_eq` などの命名を Mathlib の lowerCamelCase
   convention に合わせ、旧名には互換用 alias を残す。
 
 ### 13.5 信頼度形式と個別モデル
 
-- [x] `FoML/Confidence.lean` を作り、決定論的・標本依存しきい値の
+- [x] `FoML/Generalization/Confidence.lean` を作り、決定論的・標本依存しきい値の
   $\delta$ 形式を集約する。
-- [x] `FoML/LinearPredictorL2Generalization.lean` を作り、
+- [x] `FoML/Generalization/LinearPredictorL2.lean` を作り、
   $\ell_2$ 線形予測器の期待評価・高確率評価を移す。
-- [x] `FoML/LinearPredictorL1Generalization.lean` を作り、
+- [x] `FoML/Generalization/LinearPredictorL1.lean` を作り、
   $\ell_1/\ell_\infty$ 線形予測器の期待評価・高確率評価を移す。
-- [x] `FoML/DudleyGeneralization.lean` を作り、Dudley entropy integral
+- [x] `FoML/Generalization/Dudley.lean` を作り、Dudley entropy integral
   と汎化評価の接続を移す。
 - [x] 繰り返される Dudley の右辺を、標本を引数に取る定義として一度だけ記述する。
 
@@ -1042,3 +1042,323 @@ empiricalRademacherFunctional n φ F S
   を `Main.lean` の主要例として掲載する。
 - [x] `note/summary.md` の定義、bridge、依存関係グラフ、公開 API を更新する。
 - [x] `lake build`、未完証明検索、`import FoML.Main` からの `#check` を行う。
+
+## 15. Phase 9: モジュール階層の整理
+
+### 15.1 目的
+
+`FoML` 直下には公開入口と最も基本的な定義だけを残し、実装を依存層ごとの
+サブディレクトリへ移す。移動後の基本構成は次とする。
+
+```text
+FoML/
+├── Defs.lean
+├── Main.lean
+├── Probability/
+├── Rademacher/
+├── Entropy/
+├── Model/
+├── Generalization/
+└── ForMathlib/
+```
+
+具体的な対応は次の通りとする。
+
+| 分類 | 新しいモジュール |
+|---|---|
+| 確率論 | `Probability.Expectation`, `Probability.MeasurePi`, `Probability.Hoeffding`, `Probability.McDiarmid` |
+| Rademacher 基盤 | `Rademacher.Signs`, `Rademacher.Symmetrization`, `Rademacher.Expectation`, `Rademacher.BoundedDifference`, `Rademacher.Reindex` |
+| entropy | `Entropy.CoveringNumber`, `Entropy.PseudoMetric`, `Entropy.MaximalInequality`, `Entropy.Massart`, `Entropy.Dudley` |
+| 個別モデル | `Model.LinearPredictorL1`, `Model.LinearPredictorL2` |
+| 汎化評価 | `Generalization.Countable`, `Generalization.Separable`, `Generalization.Confidence`, `Generalization.LinearPredictorL1`, `Generalization.LinearPredictorL2`, `Generalization.Dudley` |
+
+- [x] ファイルを上記の階層へ移動する。
+- [x] 全 Lean ファイルの import path と docstring 内のモジュール名を更新する。
+- [x] `README.md`、`note/summary.md`、`note/plan.md` の現行ファイル参照を更新する。
+- [x] 実装を持たない旧 `SeparableSpaceSup.lean` の互換モジュールを整理する。
+- [x] `FoML/Main.lean` と `FoML.lean` を公開入口として維持する。
+- [x] `lake build` と `import FoML.Main` からの公開 API 検査を行う。
+
+## 16. Phase 10: RKHS の Rademacher 複雑度
+
+### 16.1 目標と参考文献
+
+Mohri, Rostamizadeh, Talwalkar, *Foundations of Machine Learning*,
+Theorem 6.12（`data/Mohri_FML.pdf`, 印刷ページ 118）を形式化する。
+実装目標は、実 Hilbert 空間 $\mathcal H$、
+特徴写像 $\Phi:\mathcal X\to\mathcal H$、重み半径 $\Lambda\ge0$ に対して
+
+$$
+\widehat{\mathfrak R}_n
+\left(
+  \left\{x\mapsto\langle w,\Phi(x)\rangle:
+    \lVert w\rVert_{\mathcal H}\le\Lambda
+  \right\};S
+\right)
+\le
+\frac{\Lambda}{n}
+\sqrt{\sum_{k=1}^n K(S_k,S_k)}
+$$
+
+を示すことである。ただし
+
+$$
+K(x,y)=\langle\Phi(x),\Phi(y)\rangle.
+$$
+
+$K(x,x)\le r^2$ なら
+
+$$
+\widehat{\mathfrak R}_n\le\frac{r\Lambda}{\sqrt n}
+$$
+
+を系として得る。本リポジトリの経験 Rademacher 複雑度は上限の内側に絶対値を
+持つが、重み球が $w\mapsto-w$ で閉じているため Mohri の片側定義と同じ評価になる。
+
+### 16.2 実装方針
+
+Mathlib には直接利用できる一般 RKHS 構造がないため、先に特徴写像による
+Hilbert 空間版を実装し、その後で kernel 表記を与える。
+
+1. `FoML/Model/HilbertPredictor.lean`
+   - 一般の実内積空間上の
+     `hilbertPredictor w x = ⟪w, x⟫` を定義する。
+   - 現在の有限次元 `LinearPredictorL2` の証明から、次元に依存しない
+     Rademacher 符号和の二乗平均評価を切り出す。
+   - 閉球全体について
+
+     $$
+     \widehat{\mathfrak R}_n
+     \le
+     \frac{\Lambda}{n}
+       \sqrt{\sum_k\lVert \Phi(S_k)\rVert^2}
+     $$
+
+     を示す。
+2. `FoML/Model/RKHS.lean`
+   - `kernelOfFeatureMap Φ x y = ⟪Φ x, Φ y⟫` を項まで定義する。
+   - 対角値
+     `kernelOfFeatureMap Φ x x = ‖Φ x‖ ^ 2` を示す。
+   - `kernelTrace Φ S = ∑ k, kernelOfFeatureMap Φ (S k) (S k)` を定義する。
+   - trace 版と一様対角上界 $K(x,x)\le r^2$ 版を公開する。
+3. `FoML/Generalization/RKHS.lean`
+   - 特徴写像の可測性、重み変数についての連続性、Hilbert 空間の可分性を仮定し、
+     期待 Rademacher 複雑度、期待一様偏差、高確率評価へ接続する。
+   - 観測標本の kernel trace を残す標本依存 E2E 評価と、
+     $r\Lambda/\sqrt n$ を使う決定論的 E2E 評価を用意する。
+4. `FoML/Main.lean`
+   - trace 版と一様対角上界版を `example` として掲載する。
+
+### 16.3 設計上の注意
+
+- [ ] 最初の定理は「任意の PDS kernel から RKHS を構成する」定理ではなく、
+  与えられた特徴写像から誘導される kernel を扱う。
+- [ ] PDS 性は有限 Gram 行列の二次形式が非負である形で別補題にする。
+- [ ] 完備性が証明に不要な固定標本評価では `InnerProductSpace ℝ H` まで仮定を弱め、
+  RKHS と呼ぶ公開 wrapper では `CompleteSpace H` を仮定する。
+- [ ] 可分クラスの汎化評価へ進む定理だけに `SeparableSpace H` を要求する。
+- [ ] 既存の $\ell_2$ 線形予測器を一般 Hilbert 空間定理の有限次元系として整理する。
+
+### 16.4 完了条件
+
+- [ ] kernel trace 版と $r\Lambda/\sqrt n$ 版がある。
+- [ ] 固定標本、期待量、標本依存 tail、決定論的 tail が接続されている。
+- [ ] Mohri Theorem 6.12 の各仮定と Lean の仮定の対応が docstring に記載されている。
+- [ ] `Main.lean` から少なくとも二つの RKHS E2E 例を確認できる。
+
+## 17. Phase 11: 具体的被覆数による Dudley 評価
+
+### 17.1 第一段階: 有限仮説クラス
+
+まず、有限型 $H$ で添字付けられたクラスについて
+
+$$
+N(F,\varepsilon)\le |H|
+$$
+
+を示す。符号対称化後は
+
+$$
+N(F^\pm,\varepsilon)\le 2|H|
+$$
+
+となる。これを Dudley の積分へ代入し、$\alpha>0$ に対して
+
+$$
+\widehat{\mathfrak R}_n(F;S)
+\le
+4\alpha+
+\frac{12}{\sqrt n}
+\left(\frac c2-\alpha\right)
+\sqrt{\log(2|H|)}
+$$
+
+という被覆数を含まない評価を得る。
+
+- [ ] 有限型全体を中心集合に取る `coveringNumber_le_fintype_card` を追加する。
+- [ ] `EmpiricalFunctionSpace F S` の有限型 instance と card の評価を追加する。
+- [ ] 符号対称化後の card $2|H|$ を使う Dudley corollary を追加する。
+- [ ] 明示的な $\alpha$ を代入した高確率汎化評価を `Main.lean` に掲載する。
+
+### 17.2 第二段階: 一次元 Lipschitz パラメータ族
+
+有限クラスだけでなく、$t\in[-W,W]$ で添字付けられ、
+
+$$
+|F_t(x)-F_s(x)|\le L|t-s|
+$$
+
+を満たすクラスを扱う。等間隔 grid により
+
+$$
+N(F,\varepsilon)
+\le
+\left\lceil\frac{2WL}{\varepsilon}\right\rceil+1
+$$
+
+を示す。Dudley 積分全体を特殊関数で厳密計算する代わりに、
+被覆数の反単調性を使って
+
+$$
+\int_\alpha^{c/2}\sqrt{\log N(F,x)}\,dx
+\le
+\left(\frac c2-\alpha\right)
+\sqrt{\log N(F,\alpha)}
+$$
+
+と評価し、右辺へ grid の card 上界を代入する。
+
+- [ ] 閉区間の有限等間隔 grid と cover 補題を `FoML/Entropy` に追加する。
+- [ ] パラメータ Lipschitz 性から経験距離 Lipschitz 性への bridge を追加する。
+- [ ] 被覆数の明示式、Dudley 評価、高確率汎化評価まで接続する。
+
+### 17.3 完了条件
+
+- [ ] `Main.lean` の最終式に未評価の `coveringNumber` が残らない。
+- [ ] 有限クラスと連続パラメータ族の少なくとも二例を用意する。
+- [ ] proof term を引数に取る既存 `coveringNumber` API は内部に隠す。
+
+## 18. Phase 12: 損失関数、ERM、余剰誤差
+
+### 18.1 中心定義
+
+`FoML/Learning/Defs.lean` を作り、データ型 $\mathcal Z$ と仮説型 $H$ に対して
+次を項まで定義する。
+
+```lean
+def populationRisk
+    (ℓ : H → 𝒵 → ℝ) (μ : Measure Ω) (Z : Ω → 𝒵) (h : H) : ℝ :=
+  ∫ ω, ℓ h (Z ω) ∂μ
+
+def empiricalRisk
+    (n : ℕ) (ℓ : H → 𝒵 → ℝ) (S : Fin n → 𝒵) (h : H) : ℝ :=
+  (n : ℝ)⁻¹ * ∑ k : Fin n, ℓ h (S k)
+
+def excessRisk
+    (ℓ : H → 𝒵 → ℝ) (μ : Measure Ω) (Z : Ω → 𝒵)
+    (h hstar : H) : ℝ :=
+  populationRisk ℓ μ Z h - populationRisk ℓ μ Z hstar
+```
+
+厳密 ERM と $\eta$-近似 ERM は、最初から `argmin` を選択するのではなく
+述語として定義する。
+
+```lean
+def IsERM (n : ℕ) (ℓ : H → 𝒵 → ℝ) (S : Fin n → 𝒵) (hhat : H) : Prop :=
+  ∀ h, empiricalRisk n ℓ S hhat ≤ empiricalRisk n ℓ S h
+
+def IsApproxERM
+    (η : ℝ) (n : ℕ) (ℓ : H → 𝒵 → ℝ)
+    (S : Fin n → 𝒵) (hhat : H) : Prop :=
+  ∀ h, empiricalRisk n ℓ S hhat ≤ empiricalRisk n ℓ S h + η
+```
+
+### 18.2 決定論的 oracle inequality
+
+- [ ] `uniformDeviation` が risk と empirical risk の差の上限に定義上等しいことを示す。
+- [ ] `hhat` が ERM なら任意の比較対象 `hstar` に対し
+
+  $$
+  R(h_{\rm ERM})-R(h^\star)
+  \le 2\operatorname{UD}_n
+  $$
+
+  を示す。
+- [ ] $\eta$-近似 ERM について
+
+  $$
+  R(\widehat h)-R(h^\star)
+  \le 2\operatorname{UD}_n+\eta
+  $$
+
+  を示す。
+- [ ] 真の risk minimizer の存在は、コンパクト性と risk の連続性を仮定する
+  別モジュールに分ける。
+
+### 18.3 損失クラスと contraction
+
+予測関数 $F_h:\mathcal X\to\mathbb R$ とラベル付きデータ
+$z=(x,y)$ に対し、損失クラス
+
+$$
+z\mapsto \ell(F_h(x),y)
+$$
+
+を定義する。
+
+- [ ] 有界損失を直接関数クラスとして既存の汎化定理へ渡す bridge を先に実装する。
+- [ ] 各 $y$ について $u\mapsto\ell(u,y)$ が $L$-Lipschitz である場合の
+  Rademacher contraction inequality を追加する。
+- [ ] $\ell(0,y)\ne0$ の場合は中心化した損失へ書き換える補題を用意する。
+- [ ] contraction の定数が絶対値付き定義と片側定義で異ならないかを明示的に検証する。
+
+### 18.4 高確率の余剰誤差評価
+
+既存の一様偏差評価と oracle inequality を合成し、例えば期待 Rademacher 複雑度版
+
+$$
+\Pr\left\{
+  R(\widehat h)-R(h^\star)
+  \ge
+  4\mathfrak R_n(\ell\circ F)+2\varepsilon+\eta
+\right\}
+\le
+\exp\left(-\frac{n\varepsilon^2}{2b^2}\right)
+$$
+
+および観測標本の経験 Rademacher 複雑度版
+
+$$
+\Pr\left\{
+  R(\widehat h)-R(h^\star)
+  \ge
+  4\widehat{\mathfrak R}_n(\ell\circ F;S)+6\varepsilon+\eta
+\right\}
+\le
+2\exp\left(-\frac{n\varepsilon^2}{2b^2}\right)
+$$
+
+を示す。ここで $b$ は損失値の絶対値上界である。
+
+- [ ] 標本依存学習則 `A : (Fin n → 𝒵) → H` と点ごとの
+  `IsApproxERM η ℓ S (A S)` を受け取る定理を追加する。
+- [ ] 信頼度 $\delta$ 形式を追加する。
+- [ ] RKHS と Lipschitz loss を contraction で接続した E2E 例を追加する。
+- [ ] `Main.lean` に ERM の主要な利用例を掲載する。
+
+### 18.5 実装順
+
+1. risk、empirical risk、余剰誤差、ERM 述語。
+2. 決定論的 oracle inequality。
+3. 有界損失クラスを既存 bridge へ渡す高確率定理。
+4. contraction inequality。
+5. $\eta$-近似 ERM と信頼度形式。
+6. RKHS または線形予測器との E2E 接続。
+
+### 18.6 完了条件
+
+- [ ] 最終定理の結論が `uniformDeviation` ではなく余剰誤差になっている。
+- [ ] 学習則の measurability と argmin の存在を、不要な定理へ過剰に要求しない。
+- [ ] exact ERM と approximate ERM の両方を扱う。
+- [ ] 決定論的 oracle inequality、Rademacher 評価、contraction、tail 評価が
+  個別の bridge として再利用できる。

@@ -1,7 +1,7 @@
-import FoML.LinearPredictorL2Generalization
-import FoML.LinearPredictorL1Generalization
-import FoML.DudleyGeneralization
-import FoML.RademacherReindex
+import FoML.Generalization.LinearPredictorL2
+import FoML.Generalization.LinearPredictorL1
+import FoML.Generalization.Dudley
+import FoML.Rademacher.Reindex
 
 /-!
 # End-to-end examples

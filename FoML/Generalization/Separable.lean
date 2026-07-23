@@ -1,4 +1,4 @@
-import FoML.Generalization
+import FoML.Generalization.Countable
 import FoML.ForMathlib.Topology.SeparableSpace
 
 /-!
