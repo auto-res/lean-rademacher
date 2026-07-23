@@ -153,14 +153,15 @@ theorem rademacher_sum_variance_zero
       exact ite_congr rfl (e k l) (congrFun rfl)
     _ = (0 : ℝ) := by simp
 
-theorem linear_predictor_l2_bound'
+theorem linear_predictor_l2_bound_of_sample'
     (W X : ℝ)
-    (hx : 0 ≤ X) (hw : 0 ≤ W)
+    (hw : 0 ≤ W)
     (Y' : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
     (w' : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W):
     empiricalRademacherComplexity
       n (fun (i : ι) a ↦ ⟪((Subtype.val ∘ w') i), a⟫) (Subtype.val ∘ Y') ≤
-    X * W / √(n : ℝ) := by
+    W * (n : ℝ)⁻¹ *
+      √(∑ k : Fin n, ‖(Y' k : EuclideanSpace ℝ (Fin d))‖ ^ 2) := by
   let w := (Subtype.val ∘ w')
   let Y := (Subtype.val ∘ Y')
   have px : ∀ (i : Fin n), ‖Y i‖ ≤ X := by
@@ -337,53 +338,74 @@ theorem linear_predictor_l2_bound'
     ext k
     rw [norm_smul]
     simp
-  _ ≤ W * (n : ℝ)⁻¹ * √(
-    ((Fintype.card (Signs n) : ℝ))⁻¹ *
-      ∑ σ : Signs n, (∑ k : Fin n, X ^ 2)) := by
-    apply mul_le_mul_of_nonneg_left
-    apply Real.sqrt_le_sqrt
-    apply mul_le_mul_of_nonneg_left
-    apply Finset.sum_le_sum
-    intro i hi
-    apply Finset.sum_le_sum
-    intro k hk
-    rw [sq_le_sq]
-    simp only [abs_norm]
-    rw [abs_of_nonneg]
-    exact px k
-    exact hx
-    exact le_of_lt (by simp)
-    · by_cases hn : 0 < n
-      · aesop
+  _ = W * (n : ℝ)⁻¹ * √(∑ k : Fin n, ‖Y k‖ ^ 2) := by simp
+  _ = W * (n : ℝ)⁻¹ *
+      √(∑ k : Fin n, ‖(Y' k : EuclideanSpace ℝ (Fin d))‖ ^ 2) := by rfl
+
+theorem linear_predictor_l2_bound'
+    (W X : ℝ)
+    (hx : 0 ≤ X) (hw : 0 ≤ W)
+    (Y' : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (w' : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W):
+    empiricalRademacherComplexity
+      n (fun (i : ι) a ↦ ⟪((Subtype.val ∘ w') i), a⟫) (Subtype.val ∘ Y') ≤
+    X * W / √(n : ℝ) := by
+  calc
+    _ ≤ W * (n : ℝ)⁻¹ *
+        √(∑ k : Fin n, ‖(Y' k : EuclideanSpace ℝ (Fin d))‖ ^ 2) :=
+      linear_predictor_l2_bound_of_sample'
+        (d := d) (n := n) (W := W) (X := X) hw Y' w'
+    _ ≤ W * (n : ℝ)⁻¹ * √(∑ _k : Fin n, X ^ 2) := by
+      gcongr with k
+      exact mem_closedBall_zero_iff.mp (Y' k).property
+    _ = W * (n : ℝ)⁻¹ * √((n : ℝ) * X ^ 2) := by simp
+    _ = W * (n : ℝ)⁻¹ * √(n : ℝ) * X := by
+      have q : √(n * X ^ 2) = √(n : ℝ) * X := by
+        simp only [Nat.cast_nonneg, sqrt_mul, mul_eq_mul_left_iff, sqrt_eq_zero,
+          Nat.cast_eq_zero]
+        left
+        exact sqrt_sq hx
+      rw [q]
+      ring
+    _ = X * W * ((n : ℝ)⁻¹ * √(n : ℝ)) := by ring
+    _ = X * W * (1 / √(n : ℝ)) := by
+      by_cases hn : 0 < n
+      · rw [(by
+          apply eq_one_div_of_mul_eq_one_left
+          field_simp
+          exact sq_sqrt (Nat.cast_nonneg' n) :
+          ((n : ℝ)⁻¹ * √(n : ℝ)) = (1 / √(n : ℝ)))]
       · simp only [not_lt, nonpos_iff_eq_zero] at hn
         rw [hn]
         simp
-  _ = W * (n : ℝ)⁻¹ * √((n : ℝ) * X ^ 2) := by
-    have q : (
-    ((Fintype.card (Signs n) : ℝ))⁻¹ *
-      ∑ σ : Signs n, (∑ k : Fin n, X ^ 2)) =
-      ((n : ℝ) * X ^ 2) := by
-      calc
-      _ = ((Fintype.card (Signs n) : ℝ))⁻¹ * ((Fintype.card (Signs n) : ℝ) * ((n : ℝ) * X ^ 2)) := by simp
-      _ = ((Fintype.card (Signs n) : ℝ))⁻¹ * (Fintype.card (Signs n) : ℝ) * ((n : ℝ) * X ^ 2) := by ring
-      _ = ((n : ℝ) * X ^ 2) := by
-        field_simp
-    rw [q]
-  _ = W * (n : ℝ)⁻¹ * √(n : ℝ) * X := by
-    have q : √(n * X ^ 2) = √(n : ℝ) * X := by
-      simp only [Nat.cast_nonneg, sqrt_mul, mul_eq_mul_left_iff, sqrt_eq_zero, Nat.cast_eq_zero]
-      left
-      exact sqrt_sq hx
-    rw [q]
-    ring
-  _ = X * W * ((n : ℝ)⁻¹ * √(n : ℝ)) := by ring
-  _ = X * W * (1 / √(n : ℝ)) := by
-    by_cases hn : 0 < n
-    · rw [(by apply eq_one_div_of_mul_eq_one_left; field_simp; exact sq_sqrt (Nat.cast_nonneg' n) : ((n : ℝ)⁻¹ * √(n : ℝ)) = (1 / √(n : ℝ)))]
-    · simp only [not_lt, nonpos_iff_eq_zero] at hn
-      rw [hn]
-      simp
-  _ = X * W / √(n : ℝ) := by ring
+    _ = X * W / √(n : ℝ) := by ring
+
+/--
+Sample-dependent empirical Rademacher-complexity bound for the full class of
+`ℓ₂`-bounded linear predictors.
+-/
+theorem linear_predictor_l2_empirical_bound_of_sample
+    (d n : ℕ) (W X : ℝ) (hW : 0 ≤ W)
+    (S : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) :
+    empiricalRademacherComplexity n
+        (linearPredictorL2 :
+          Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ) S
+      ≤ W * (n : ℝ)⁻¹ *
+        Real.sqrt
+          (∑ k : Fin n, ‖(S k : EuclideanSpace ℝ (Fin d))‖ ^ 2) := by
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :=
+    (Metric.nonempty_closedBall.mpr hW).to_subtype
+  change empiricalRademacherComplexity n
+    (fun (w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W)
+        (x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) ↦
+      ⟪(w : EuclideanSpace ℝ (Fin d)), (x : EuclideanSpace ℝ (Fin d))⟫) S
+      ≤ W * (n : ℝ)⁻¹ *
+        Real.sqrt
+          (∑ k : Fin n, ‖(S k : EuclideanSpace ℝ (Fin d))‖ ^ 2)
+  rw [empiricalRademacherComplexity_comp]
+  exact linear_predictor_l2_bound_of_sample'
+    (d := d) (n := n) (W := W) (X := X) hW S id
 
 /--
 Empirical Rademacher-complexity bound for the full class of `ℓ₂`-bounded

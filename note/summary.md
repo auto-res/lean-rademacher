@@ -2,25 +2,27 @@
 
 - 最終確認日: 2026-07-24
 - 基準ブランチ: `ss`
-- 基準コミット: `dbad457a8a319b70445dbf772e72b411818cd8a9`
+- 基準コミット: `4a059448d0ee6661a475723bc321e9e52a226a0f`
 
 ## 0. 対象と現在の到達点
 
 この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。利用者向けの主要定理は [`FoML/Main.lean`](../FoML/Main.lean)、ライブラリ全体の入口は [`FoML.lean`](../FoML.lean) に置かれている。
 
-現在の実装は、次の五つの経路を一つの公開 API として接続している。
+現在の実装は、次の六つの経路を一つの公開 API として接続している。
 
 1. 一様偏差の期待値を symmetrization により期待 Rademacher 複雑度で評価する。
 2. 一様偏差の有界差分性と McDiarmid の不等式から高確率汎化評価を得る。
 3. 固定標本上の経験 Rademacher 複雑度の一様上界を、期待量と高確率汎化評価へ移す。
 4. 経験 Rademacher 複雑度自身の下側集中を使い、観測標本の経験量を閾値に残した高確率汎化評価を得る。
-5. 線形予測器または Dudley entropy integral による経験複雑度の評価を、上記の接続定理へ投入する。
+5. 標本ごとの経験評価 $\widehat{\mathfrak R}_n(f;S)\le C(S)$ を、$C(S)$ がランダムな閾値に残る高確率汎化評価へ移す。
+6. 線形予測器または Dudley entropy integral による経験複雑度の評価を上記の接続定理へ投入し、信頼度 $0<\delta\le1$ を直接受け取る E2E 評価を得る。
 
 とくに、以前分離していた次の二点は接続済みである。
 
 - $\ell_2$ および $\ell_1/\ell_\infty$ 線形予測器について、経験評価から期待 Rademacher 複雑度、期待一様偏差、高確率汎化評価までの専用定理がある。
+- 両線形クラスについて、一様半径による決定論的複雑度項だけでなく、観測標本の二乗ノルムまたは座標ごとの二乗和を残す標本依存 E2E 評価がある。
 - Dudley の片側経験複雑度の評価を、符号対称化により絶対値付き経験複雑度へ変換し、標本一様な entropy 評価から期待量と高確率汎化評価を得られる。
-- Dudley の右辺を標本一様な定数へ置き換えず、観測標本上の entropy integral をランダムな閾値に残す高確率汎化評価もある。
+- Dudley の右辺を標本一様な定数へ置き換えず、観測標本上の entropy integral をランダムな閾値に残す高確率汎化評価があり、`ε` 形式と `δ` 形式の両方を公開する。
 
 概念上の依存関係は次のようにまとめられる。
 
@@ -49,6 +51,9 @@ flowchart LR
     empiricalBD["経験 Rademacher 複雑度の<br/>有界差分性"]
     empiricalTail["経験 Rademacher 複雑度の<br/>下側集中"]
     dataTail["経験複雑度を閾値にした<br/>高確率汎化評価"]
+    sampleBridge["標本依存上界 C(S) の<br/>共通 bridge"]
+    confidence["ε 形式から<br/>δ 形式への変換"]
+    sampleLinear["標本幾何を残す<br/>線形クラス経験評価"]
     sampleDudley["標本依存 Dudley<br/>汎化評価"]
     main["Main"]
 
@@ -74,6 +79,8 @@ flowchart LR
     rademacher --> empiricalTail
     empiricalTail --> dataTail
     rademacher --> dataTail
+    dataTail --> sampleBridge
+    sampleBridge --> confidence
 
     symm --> linearL2
     variableProp --> linearL2
@@ -82,6 +89,9 @@ flowchart LR
     variableProp --> massart
     maximal --> massart
     massart --> linearL1
+    linearL2 --> sampleLinear
+    linearL1 --> sampleLinear
+    sampleLinear --> sampleBridge
 
     covering --> pseudo
     pseudo --> dudley
@@ -90,7 +100,8 @@ flowchart LR
     pseudo --> signSymm
     signSymm --> dudley
     dudley --> sampleDudley
-    dataTail --> sampleDudley
+    sampleBridge --> sampleDudley
+    sampleDudley --> confidence
 
     rademacher --> main
     boundedDiff --> main
@@ -101,6 +112,9 @@ flowchart LR
     linearL1 --> main
     dudley --> main
     dataTail --> main
+    sampleBridge --> main
+    confidence --> main
+    sampleLinear --> main
     sampleDudley --> main
 ```
 
@@ -521,6 +535,14 @@ $$
 
 右辺の閾値は観測標本 $S$ に依存し、全標本に共通する経験複雑度上界 $C$ を必要としない。
 
+各標本で計算できる上界 $C(S)$ があり
+
+$$
+\widehat{\mathfrak R}_n(f;S)\le C(S)
+$$
+
+なら、`uniform_deviation_tail_bound_countable_of_sample_empirical_le` により経験複雑度そのものを $C(S)$ で置き換えられる。
+
 ### 3.6 可分クラスへの拡張
 
 [`FoML/SeparableSpaceSup.lean`](../FoML/SeparableSpaceSup.lean) の
@@ -554,6 +576,8 @@ $$
 uniform_deviation_tail_bound_separable
 uniform_deviation_tail_bound_separable_of_pos
 uniform_deviation_tail_bound_separable_of_empirical_complexity
+uniform_deviation_tail_bound_separable_of_sample_empirical_le
+uniform_deviation_tail_bound_separable_of_sample_empirical_le_delta
 ```
 
 である。可算性の代わりに、添字空間の可分性、点ごとのパラメータ連続性、一様有界性などを仮定する。一様偏差の等式では、母平均のパラメータ連続性を得るため `FirstCountableTopology` も用いる。
@@ -609,6 +633,19 @@ $$
 
 という形を持つ。ここで $C$ は経験 Rademacher 複雑度の全標本一様上界、$b$ は関数値の一様上界であり、役割が異なる。
 
+`uniform_deviation_tail_bound_separable_of_empirical_le_delta` は信頼度を直接受け取り、$n>0$, $b>0$, $0<\delta\le1$ の下で
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n
+  \ge
+  2C+b\sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+を与える。
+
 ### 4.3 標本依存閾値を使う公開定理
 
 全標本一様な定数 $C$ を経由しない経路も実装されている。
@@ -617,7 +654,10 @@ $$
 |---|---|
 | 経験複雑度の下側集中 | `empiricalRademacherComplexity_lower_tail_countable`, `empiricalRademacherComplexity_lower_tail_countable_of_pos` |
 | 可算クラスの標本依存 tail | `uniform_deviation_tail_bound_countable_of_empirical_complexity` |
+| 可算クラスの標本依存上界 bridge | `uniform_deviation_tail_bound_countable_of_sample_empirical_le` |
 | 可分クラスの標本依存 tail | `uniform_deviation_tail_bound_separable_of_empirical_complexity` |
+| 可分クラスの標本依存上界 bridge | `uniform_deviation_tail_bound_separable_of_sample_empirical_le` |
+| 可分クラスの標本依存上界 bridge、信頼度形式 | `uniform_deviation_tail_bound_separable_of_sample_empirical_le_delta` |
 
 可分クラス版も
 
@@ -633,6 +673,39 @@ $$
 
 を示す。稠密可算部分クラスへの還元により、経験 Rademacher 複雑度と一様偏差の両方を保存してから可算クラス版を適用する。
 
+より一般に、各標本で $\widehat{\mathfrak R}_n(f;S)\le C(S)$ が成立すれば
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n(f;S)
+  \ge
+  2C(S)+3\varepsilon
+\right\}
+\le
+2\exp\!\left(-\frac{n\varepsilon^2}{2b^2}\right).
+$$
+
+信頼度形式では
+
+$$
+\widetilde\varepsilon_\delta
+=
+b\sqrt{\frac{2\log(2/\delta)}{n}}
+$$
+
+を用いて
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n(f;S)
+  \ge
+  2C(S)+3\widetilde\varepsilon_\delta
+\right\}
+\le\delta
+$$
+
+を得る。これは線形予測器の標本幾何による評価と Dudley entropy integral に共通する接続である。
+
 ## 5. $\ell_2$ 制約付き線形予測器
 
 ### 5.1 関数クラス
@@ -640,7 +713,12 @@ $$
 [`FoML/LinearPredictorL2.lean`](../FoML/LinearPredictorL2.lean) の
 
 ```lean
-linearPredictorL2
+noncomputable def linearPredictorL2
+    {d : ℕ} {W X : ℝ}
+    (w : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W)
+    (x : Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X) : ℝ :=
+  ⟪(w : EuclideanSpace ℝ (Fin d)),
+    (x : EuclideanSpace ℝ (Fin d))⟫
 ```
 
 は
@@ -669,13 +747,28 @@ $$
 
 ### 5.2 経験 Rademacher 複雑度
 
-主な経験評価は
+標本依存の経験評価
+
+```lean
+linear_predictor_l2_empirical_bound_of_sample
+```
+
+は
+
+$$
+\widehat{\mathfrak R}_n(\mathcal F_{2,W};S)
+\le
+\frac{W}{n}
+\sqrt{\sum_{k=1}^n\|S_k\|_2^2}
+$$
+
+を示す。一様半径による評価
 
 ```lean
 linear_predictor_l2_empirical_bound
 ```
 
-であり、任意の固定標本 $S$ について
+は $\|S_k\|_2\le X$ を各項に使った系であり、任意の固定標本 $S$ について
 
 $$
 \widehat{\mathfrak R}_n(\mathcal F_{2};S)
@@ -699,7 +792,9 @@ $$
 |---|---|
 | `linear_predictor_l2_rademacher_complexity_bound` | $\mathfrak R_n\le XW/\sqrt n$。 |
 | `linear_predictor_l2_uniform_deviation_expectation_bound` | $\mathbb E[\operatorname{UD}_n]\le2XW/\sqrt n$。 |
-| `linear_predictor_l2_uniform_deviation_tail_bound` | 経験評価を決定論的閾値にした高確率汎化評価。 |
+| `linear_predictor_l2_uniform_deviation_tail_bound` | 経験評価を決定論的閾値にした `ε` 形式の高確率汎化評価。 |
+| `linear_predictor_l2_uniform_deviation_tail_bound_delta` | 決定論的複雑度項を使う `δ` 形式の E2E 評価。 |
+| `linear_predictor_l2_uniform_deviation_tail_bound_of_sample_delta` | 観測標本の二乗ノルムを残す `δ` 形式の E2E 評価。 |
 
 $X,W>0$ の tail 定理は
 
@@ -717,6 +812,32 @@ $$
 
 を与える。
 
+信頼度形式の決定論的 E2E 評価は
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n
+  \ge
+  \frac{2XW}{\sqrt n}
+  +XW\sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+である。標本依存版は
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n
+  \ge
+  \frac{2W}{n}\sqrt{\sum_{k=1}^n\|S_k\|_2^2}
+  +3XW\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+を与える。前者の複雑度項は全標本で同じだが、後者は観測された入力ノルムに適応する。
+
 ## 6. $\ell_1/\ell_\infty$ 制約付き線形予測器
 
 ### 6.1 幾何学的な定義
@@ -729,8 +850,39 @@ $$
 | `L1Ball W` | $\|w\|_1\le W$ を満たす Euclidean vector の部分型。 |
 | `LinftyBall Xinf` | 全座標で $|x_j|\le X_\infty$ を満たす部分型。 |
 | `linearPredictorL1` | $f_w(x)=\sum_jw_jx_j$。 |
+| `linearPredictorL1SampleRadius S` | $n^{-1}\sup_j\sqrt{\sum_k |S_{k,j}|^2}$。 |
 | `coordSigned` | $(j,\pm)$ に対応する signed coordinate。 |
 | `abs_sum_mul_le_l1_mul` | $\ell_1/\ell_\infty$ duality による有限和の評価。 |
+
+中心となる型と関数の項は次の通りである。
+
+```lean
+noncomputable def l1Norm
+    (w : EuclideanSpace ℝ (Fin d)) : ℝ :=
+  ∑ j : Fin d, |w j|
+
+def L1Ball (W : ℝ) : Type :=
+  {w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W}
+
+def LinftyBall (Xinf : ℝ) : Type :=
+  {x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf}
+
+noncomputable def linearPredictorL1
+    {d : ℕ} {Xinf W : ℝ}
+    (w : L1Ball (d := d) W)
+    (x : LinftyBall (d := d) Xinf) : ℝ :=
+  ∑ j : Fin d, w.1 j * x.1 j
+```
+
+標本依存量は、証明項を引数に持つ `Finset.sup'` を公開 API に出さず、次の項として定義される。
+
+```lean
+noncomputable def linearPredictorL1SampleRadius
+    {d n : ℕ} {Xinf : ℝ}
+    (S : Fin n → LinftyBall (d := d) Xinf) : ℝ :=
+  (n : ℝ)⁻¹ *
+    ⨆ j : Fin d, Real.sqrt (∑ k : Fin n, |(S k).1 j| ^ 2)
+```
 
 `continuous_linearPredictorL1_weight`,
 `continuous_linearPredictorL1_input`,
@@ -764,7 +916,25 @@ $\ell_1$ 線形クラスでは、サイズ $2d$ の signed-coordinate class に�
 
 ### 6.3 経験量、期待量、汎化評価
 
-`linear_predictor_l1_empirical_bound` は $d,n>0$ の下で
+`linear_predictor_l1_empirical_bound_of_sample` は $d,n>0$ の下で
+
+$$
+\widehat{\mathfrak R}_n(\mathcal F_{1,W};S)
+\le
+WQ_\infty(S)\sqrt{2\log(2d)},
+\qquad
+Q_\infty(S)
+=
+\frac1n\sup_{j<d}\sqrt{\sum_{k=1}^n|S_{k,j}|^2}
+$$
+
+を示す。`linearPredictorL1SampleRadius_le` により
+
+$$
+Q_\infty(S)\le\frac{X_\infty}{\sqrt n}
+$$
+
+を示し、その系 `linear_predictor_l1_empirical_bound` として
 
 $$
 \widehat{\mathfrak R}_n(\mathcal F_{1};S)
@@ -781,7 +951,9 @@ $$
 |---|---|
 | `linear_predictor_l1_rademacher_complexity_bound` | 上記の経験評価と同じ定数による期待 Rademacher 複雑度の評価。 |
 | `linear_predictor_l1_uniform_deviation_expectation_bound` | 期待一様偏差をその定数の二倍で評価。 |
-| `linear_predictor_l1_uniform_deviation_tail_bound` | 同じ定数を決定論的閾値にした高確率汎化評価。 |
+| `linear_predictor_l1_uniform_deviation_tail_bound` | 同じ定数を決定論的閾値にした `ε` 形式の高確率汎化評価。 |
+| `linear_predictor_l1_uniform_deviation_tail_bound_delta` | 決定論的複雑度項を使う `δ` 形式の E2E 評価。 |
+| `linear_predictor_l1_uniform_deviation_tail_bound_of_sample_delta` | $Q_\infty(S)$ を残す `δ` 形式の E2E 評価。 |
 
 $X_\infty,W>0$ の tail 定理では、複雑度項
 
@@ -807,6 +979,33 @@ $$
 
 を示す。
 
+決定論的な信頼度形式は
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n
+  \ge
+  2C_1+X_\infty W
+    \sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+である。標本依存版は
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n
+  \ge
+  2WQ_\infty(S)\sqrt{2\log(2d)}
+  +3X_\infty W
+    \sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+を与える。
+
 ## 7. Dudley entropy integral
 
 ### 7.1 経験擬距離
@@ -814,9 +1013,17 @@ $$
 [`FoML/PseudoMetric.lean`](../FoML/PseudoMetric.lean) は
 
 ```lean
-empiricalNorm S f
-empiricalDist S f g
-EmpiricalFunctionSpace F S
+noncomputable def empiricalNorm
+    (S : Fin n → 𝒳) (f : 𝒳 → ℝ) : ℝ :=
+  Real.sqrt ((1 / n) * ∑ i : Fin n, f (S i) ^ 2)
+
+noncomputable def empiricalDist
+    (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) : ℝ :=
+  empiricalNorm S (f - g)
+
+structure EmpiricalFunctionSpace
+    (F : ι → 𝒳 → ℝ) (S : Fin n → 𝒳) where
+  index : ι
 ```
 
 を定義する。
@@ -902,6 +1109,15 @@ $$
 ### 7.4 符号対称化と絶対値付き版
 
 `signSymmetrization F` は添字型を $\iota\times\operatorname{Bool}$ に拡張し、各 $F_i$ と $-F_i$ を含むクラスを作る。固定標本上の一様有界性の下で
+
+```lean
+def signSymmetrization
+    (F : ι → 𝒳 → ℝ) : ι × Bool → 𝒳 → ℝ :=
+  fun ib x ↦ if ib.2 then F ib.1 x else -F ib.1 x
+
+def IsNegClosed (F : ι → 𝒳 → ℝ) : Prop :=
+  ∀ i, ∃ j, F j = -F i
+```
 
 ```lean
 empiricalRademacherComplexity_eq_without_abs_signSymmetrization
@@ -1012,6 +1228,7 @@ $$
 
 ```lean
 uniform_deviation_tail_bound_separable_of_dudley
+uniform_deviation_tail_bound_separable_of_dudley_delta
 ```
 
 である。各標本 $S$ に対し
@@ -1046,6 +1263,22 @@ $$
 
 を `dudley_entropy_integral_bound_abs` から得て、4.3 の可分クラス向け標本依存 tail の事象包含へ渡す。したがって Dudley の標本依存性を消すための期待値評価や supremum 評価は不要である。
 
+実装上、Dudley 専用定理は事象包含を再証明せず、
+`uniform_deviation_tail_bound_separable_of_sample_empirical_le` またはその `δ` 形式へ
+$C(S)=D_\alpha(S)$ を代入する薄い corollary になっている。信頼度形式の結論は
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n(f;S)
+  \ge
+  2D_\alpha(S)
+  +3b\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+である。
+
 ## 8. `FoML/Main.lean` の公開 API
 
 ### 8.1 抽象的な汎化定理
@@ -1059,6 +1292,9 @@ $$
 | 可分クラス | `uniform_deviation_tail_bound_separable`, `uniform_deviation_tail_bound_separable_of_pos` |
 | 標本依存・可算クラス | `uniform_deviation_tail_bound_countable_of_empirical_complexity` |
 | 標本依存・可分クラス | `uniform_deviation_tail_bound_separable_of_empirical_complexity` |
+| 標本依存上界 $C(S)$・可算クラス | `uniform_deviation_tail_bound_countable_of_sample_empirical_le` |
+| 標本依存上界 $C(S)$・可分クラス | `uniform_deviation_tail_bound_separable_of_sample_empirical_le` |
+| 標本依存上界 $C(S)$・可分クラス、信頼度形式 | `uniform_deviation_tail_bound_separable_of_sample_empirical_le_delta` |
 
 ### 8.2 固定標本評価からの接続
 
@@ -1069,15 +1305,20 @@ $$
 | 可分クラスの期待 Rademacher 複雑度 | `rademacherComplexity_le_of_empirical_le_separable` |
 | 可分クラスの期待一様偏差 | `uniform_deviation_expectation_le_of_empirical_le_separable` |
 | 可分クラスの tail | `uniform_deviation_tail_bound_separable_of_empirical_le` |
+| 可分クラスの tail、信頼度形式 | `uniform_deviation_tail_bound_separable_of_empirical_le_delta` |
 
 ### 8.3 線形予測器
 
 | 分類 | $\ell_2$ | $\ell_1/\ell_\infty$ |
 |---|---|---|
 | 固定標本 wrapper | `linear_predictor_l2_bound` | `linear_predictor_l1_bound` |
+| 標本依存の経験評価 | `linear_predictor_l2_empirical_bound_of_sample` | `linear_predictor_l1_empirical_bound_of_sample` |
+| 一様半径による経験評価 | `linear_predictor_l2_empirical_bound` | `linear_predictor_l1_empirical_bound` |
 | 期待 Rademacher 複雑度 | `linear_predictor_l2_rademacher_complexity_bound` | `linear_predictor_l1_rademacher_complexity_bound` |
 | 期待一様偏差 | `linear_predictor_l2_uniform_deviation_expectation_bound` | `linear_predictor_l1_uniform_deviation_expectation_bound` |
-| 高確率一様偏差 | `linear_predictor_l2_uniform_deviation_tail_bound` | `linear_predictor_l1_uniform_deviation_tail_bound` |
+| 高確率一様偏差、`ε` 形式 | `linear_predictor_l2_uniform_deviation_tail_bound` | `linear_predictor_l1_uniform_deviation_tail_bound` |
+| 決定論的 E2E、`δ` 形式 | `linear_predictor_l2_uniform_deviation_tail_bound_delta` | `linear_predictor_l1_uniform_deviation_tail_bound_delta` |
+| 標本依存 E2E、`δ` 形式 | `linear_predictor_l2_uniform_deviation_tail_bound_of_sample_delta` | `linear_predictor_l1_uniform_deviation_tail_bound_of_sample_delta` |
 
 ### 8.4 Dudley
 
@@ -1088,7 +1329,8 @@ $$
 | 負号閉クラス | `dudley_entropy_integral_bound_abs_of_neg_closed` |
 | 標本一様 entropy 評価から期待量 | `rademacher_complexity_le_dudley_of_uniform_entropy` |
 | 標本一様 entropy 評価から tail | `uniform_deviation_tail_bound_separable_of_uniform_dudley` |
-| 観測標本上の entropy integral から tail | `uniform_deviation_tail_bound_separable_of_dudley` |
+| 観測標本上の entropy integral から tail、`ε` 形式 | `uniform_deviation_tail_bound_separable_of_dudley` |
+| 観測標本上の entropy integral から tail、`δ` 形式 | `uniform_deviation_tail_bound_separable_of_dudley_delta` |
 
 ## 9. 現在の接続関係と注意点
 
@@ -1122,6 +1364,16 @@ $$
 
 線形予測器については、経験評価からこの結論までを合成した専用定理がある。Dudley については、全標本で共通する entropy 上界 $C$ を仮定する専用定理がある。
 
+信頼度を直接指定する場合は
+
+$$
+\varepsilon_\delta
+=
+b\sqrt{\frac{2\log(1/\delta)}{n}}
+$$
+
+を共通 corollary が代入する。$\ell_2$ と $\ell_1/\ell_\infty$ の決定論的 E2E 定理は、この経路を使って確率上界を $\delta$ として公開する。
+
 これとは別に、経験 Rademacher 複雑度を観測標本ごとの閾値として残す接続も実装済みである。`empiricalRademacherComplexity_bounded_difference` と下側 McDiarmid 評価により
 
 $$
@@ -1143,6 +1395,24 @@ $$
 $$
 
 を得る。Dudley の観測標本上の右辺もこの経路へ直接代入できる。
+
+さらに、共通 bridge は任意の点ごとの上界
+
+$$
+\forall S,\qquad
+\widehat{\mathfrak R}_n(f;S)\le C(S)
+$$
+
+を受け取る。したがって、$\ell_2$ では $\sum_k\|S_k\|_2^2$、$\ell_1/\ell_\infty$ では
+$\sup_j\sum_k|S_{k,j}|^2$、Dudley では観測標本上の entropy integral を、それぞれ未評価の経験 Rademacher 複雑度に代えて閾値へ残せる。信頼度形式では
+
+$$
+\widetilde\varepsilon_\delta
+=
+b\sqrt{\frac{2\log(2/\delta)}{n}}
+$$
+
+を使い、確率上界を $\delta$ とする。
 
 ### 9.2 Dudley の片側版と絶対値付き版
 
@@ -1167,6 +1437,8 @@ $$
 - $C$: 決定論的閾値を使う経路における、経験 Rademacher 複雑度または Dudley の右辺の標本一様な数値上界。汎化評価の閾値 $2C+\varepsilon$ に現れる。
 
 標本依存経路では $C$ を使わず、$\widehat{\mathfrak R}_n(f;S)$ または $D_\alpha(S)$ が閾値に現れる。この場合の slack は $3\varepsilon$、確率上界の前係数は $2$ になる。
+
+より一般の標本依存上界 bridge では、ここでいう経験量を $C(S)$ に置き換える。`δ` 形式では、決定論的経路の対数は $\log(1/\delta)$、標本依存経路の対数は前係数 $2$ を吸収するため $\log(2/\delta)$ となる。
 
 たとえば $\ell_1$ 線形クラスでは
 
@@ -1197,6 +1469,7 @@ Lean の実数では $0^{-1}=0$ なので、中心定義は $n=0$ でも総関�
 次は現行の主要 API には含まれていない。
 
 - Lipschitz loss に対する contraction inequality。
+- リスク、経験リスク、ERM、余剰誤差まで接続した学習アルゴリズム単位の E2E 評価。現在の E2E の終点は `uniformDeviation` である。
 - RKHS の具体的な複雑度評価。
 - Lipschitz 関数やニューラルネットワークに対する具体的な被覆数評価。
 - 符号対称化前後の被覆数を係数 $2$ で比較する補題。
@@ -1228,11 +1501,15 @@ $$
 | [`RademacherVariableProperty.lean`](../FoML/RademacherVariableProperty.lean) | 符号の直交性、PMF 表現、符号対称化、負号閉性。 |
 | [`MaximalInequality.lean`](../FoML/MaximalInequality.lean) | 有限個の sub-Gaussian 和の expected maximum。 |
 | [`Massart.lean`](../FoML/Massart.lean) | PMF 版 Massart finite-class lemma。 |
-| [`LinearPredictorL2.lean`](../FoML/LinearPredictorL2.lean) | $\ell_2$ 線形予測器と経験複雑度評価。 |
-| [`LinearPredictorL1.lean`](../FoML/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器と経験複雑度評価。 |
+| [`LinearPredictorL2.lean`](../FoML/LinearPredictorL2.lean) | $\ell_2$ 線形予測器、標本の二乗ノルムを残す経験評価、その一様半径版。 |
+| [`LinearPredictorL1.lean`](../FoML/LinearPredictorL1.lean) | $\ell_1/\ell_\infty$ 線形予測器、座標ごとの標本二乗和を残す経験評価、その一様半径版。 |
 | [`CoveringNumber.lean`](../FoML/CoveringNumber.lean) | 被覆数と最小被覆有限集合。 |
 | [`PseudoMetric.lean`](../FoML/PseudoMetric.lean) | 経験ノルム、経験擬距離、関数空間。 |
 | [`DudleyEntropy.lean`](../FoML/DudleyEntropy.lean) | chaining、entropy integral、符号対称化後の全有界性、絶対値付き Dudley 評価。 |
-| [`Main.lean`](../FoML/Main.lean) | 汎化定理、固定標本評価の接続、経験複雑度の下側集中、決定論的・標本依存の線形予測器および Dudley 公開定理。 |
+| [`Main.lean`](../FoML/Main.lean) | 汎化定理、固定標本評価の接続、経験複雑度の下側集中、標本依存上界 bridge、`δ` 形式、線形予測器および Dudley の E2E 公開定理。 |
 
 `FoML/WIP/RademacherProperty.lean` は旧/WIP 実装であり、`FoML.lean` からは import されない。現行の公開経路では [`FoML/RademacherVariableProperty.lean`](../FoML/RademacherVariableProperty.lean) を参照する。
+
+## 11. 検証状態
+
+2026-07-24 時点で、Phase 6 の変更を含む全体 `lake build` は成功している。`import FoML` だけを使う検査ファイルから新しい共通 bridge、両線形クラスの経験評価と E2E 評価、Dudley の信頼度形式を参照できることも確認した。`FoML` 以下に `sorry` または `admit` はない。文書中の高確率評価はすべて悪い事象の確率に対する上界として記している。

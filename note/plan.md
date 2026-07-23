@@ -527,6 +527,18 @@ Phase 4 までの決定論的閾値版に続き、Phase 5 では経験 Rademache
 - [x] 観測標本上の Dudley entropy integral を閾値に残す高確率汎化評価を追加する。
 - [x] `README.md` と `note/summary.md` に標本依存経路と定数を反映する。
 
+### Phase 6: `Main.lean` の E2E 評価
+
+- [x] 標本依存な経験複雑度上界 `C S` を受け取る共通 tail 定理を追加する。
+- [x] `ε` 形式の tail を信頼度 `δ` 形式へ変換する共通 corollary を追加する。
+- [x] $\ell_2$ 線形予測器について、観測標本の二乗ノルムを使う経験複雑度評価を公開する。
+- [x] $\ell_2$ の決定論的版・標本依存版 E2E 汎化評価を `Main.lean` に揃える。
+- [x] $\ell_1/\ell_\infty$ 線形予測器について、観測標本の座標ごとの二乗和を使う経験複雑度評価を公開する。
+- [x] $\ell_1/\ell_\infty$ の決定論的版・標本依存版 E2E 汎化評価を `Main.lean` に揃える。
+- [x] Dudley の entropy-form E2E 評価を共通な標本依存 bridge で書き直し、`δ` 形式を追加する。
+- [x] `Main.lean` の例では中間量ではなく最終的な確率評価を先に提示し、低水準 wrapper は互換性のため残す。
+- [x] `README.md` と `note/summary.md` の公開 API 表を E2E 評価中心に更新する。
+
 ## 9. ファイルごとの変更予定
 
 | ファイル | 変更内容 |
@@ -592,3 +604,252 @@ Phase 4 までの決定論的閾値版に続き、Phase 5 では経験 Rademache
    ```
 
    であり、tail の閾値には `C`、指数部には `b` が現れる。
+
+## 12. Phase 6 の詳細計画
+
+### 12.1 今回の E2E の意味
+
+今回 E2E と呼ぶ定理は、確率空間、データ確率変数、モデルの半径、標本サイズ、信頼度を仮定し、結論に期待 Rademacher 複雑度や未評価の経験 Rademacher 複雑度を残さない高確率一様偏差評価とする。
+
+対象は次の二種類である。
+
+1. **決定論的閾値版**
+
+   全標本一様な経験複雑度上界を使う。既存の線形予測器の tail 定理がこの形に相当する。
+
+2. **標本依存閾値版**
+
+   観測標本上の二乗ノルム、座標ごとの二乗和、または Dudley entropy integral を閾値に残す。
+
+この phase でいう E2E の終点は `uniformDeviation` とする。損失関数、ERM、余剰誤差まで含む評価には contraction inequality と risk/empirical-risk API が必要であり、別 phase とする。
+
+### 12.2 先に追加する共通 bridge
+
+現在の
+
+```lean
+uniform_deviation_tail_bound_separable_of_empirical_complexity
+```
+
+は閾値に経験 Rademacher 複雑度そのものを置く。一方、各モデルの E2E 定理では標本依存な上界
+
+```lean
+C : (Fin n → 𝒳) → ℝ
+```
+
+を代入したい。そこで、少なくとも可分クラスについて次の形の共通定理を追加する。
+
+```lean
+uniform_deviation_tail_bound_separable_of_sample_empirical_le
+```
+
+仮定:
+
+```lean
+∀ S, empiricalRademacherComplexity n F S ≤ C S
+```
+
+結論:
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n(F;S)
+  \ge 2C(S)+3\varepsilon
+\right\}
+\le
+2\exp\!\left(-\frac{n\varepsilon^2}{2b^2}\right).
+$$
+
+証明は経験複雑度を閾値にした既存定理と事象包含だけで行う。Dudley 専用定理に現在直接書かれている事象包含も、この共通 bridge へ置き換える。必要なら可算クラス版を先に証明し、可分クラス版を稠密可算化で導く。
+
+### 12.3 信頼度 `δ` 形式
+
+E2E の公開定理では `ε` を利用者に解かせず、$0<\delta\le1$ を受け取る形も用意する。
+
+決定論的閾値版では
+
+$$
+\varepsilon_\delta
+=
+b\sqrt{\frac{2\log(1/\delta)}{n}},
+$$
+
+標本依存閾値版では union bound の前係数 $2$ を吸収するため
+
+$$
+\widetilde\varepsilon_\delta
+=
+b\sqrt{\frac{2\log(2/\delta)}{n}}
+$$
+
+とする。したがって最終形はそれぞれ
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n\ge2C+\varepsilon_\delta
+\right\}\le\delta
+$$
+
+および
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n\ge2C(S)+3\widetilde\varepsilon_\delta
+\right\}\le\delta
+$$
+
+となる。指数関数と対数関数の変形、平方根の二乗、$\log(1/\delta)\ge0$ を共通補題へまとめ、モデルごとに再証明しない。
+
+### 12.4 $\ell_2$ 線形予測器
+
+既存の `linear_predictor_l2_empirical_bound` は各標本点のノルムを一様半径 $X$ で置き換えた後の評価だけを公開している。証明途中に現れている、より鋭い標本依存評価
+
+$$
+\widehat{\mathfrak R}_n(\mathcal F_{2,W};S)
+\le
+\frac{W}{n}
+\sqrt{\sum_{k=1}^n\|S_k\|_2^2}
+$$
+
+を `FoML/LinearPredictorL2.lean` に切り出す。
+
+候補名:
+
+```lean
+linear_predictor_l2_empirical_bound_of_sample
+```
+
+既存の $XW/\sqrt n$ 評価は、$\|S_k\|_2\le X$ を使う系としてこの定理から導く。`Main.lean` には次の二つを E2E 評価として置く。
+
+- 決定論的版:
+
+  $$
+  \Pr\left\{
+    \operatorname{UD}_n
+    \ge
+    \frac{2XW}{\sqrt n}
+    +XW\sqrt{\frac{2\log(1/\delta)}{n}}
+  \right\}
+  \le\delta.
+  $$
+
+- 標本依存版:
+
+  $$
+  \Pr\left\{
+    \operatorname{UD}_n
+    \ge
+    \frac{2W}{n}
+      \sqrt{\sum_k\|Z(\omega_k)\|_2^2}
+    +3XW\sqrt{\frac{2\log(2/\delta)}{n}}
+  \right\}
+  \le\delta.
+  $$
+
+### 12.5 $\ell_1/\ell_\infty$ 線形予測器
+
+既存証明では Massart の補題の後に、各座標の二乗和を一様上界 $X_\infty/\sqrt n$ で置き換えている。その直前を標本依存評価として切り出す。
+
+標本依存量を
+
+$$
+Q_\infty(S)
+=
+\frac1n
+\sup_{j<d}
+\sqrt{\sum_{k=1}^n |S_{k,j}|^2}
+$$
+
+とし、
+
+$$
+\widehat{\mathfrak R}_n(\mathcal F_{1,W};S)
+\le
+WQ_\infty(S)\sqrt{2\log(2d)}
+$$
+
+を公開する。Lean では証明項を引数に持つ `Finset.sup'` を最終定理へ露出させず、`⨆ j : Fin d, ...` で定義する。有限型上の `iSup` と既存の `Finset.sup'` の一致が不足していれば補題を追加する。
+
+候補名:
+
+```lean
+linear_predictor_l1_empirical_bound_of_sample
+```
+
+最終的な標本依存 E2E 評価は
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n
+  \ge
+  2WQ_\infty(S)\sqrt{2\log(2d)}
+  +3X_\infty W
+    \sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+とする。既存の決定論的評価も `δ` 形式の E2E corollary を追加する。
+
+### 12.6 Dudley
+
+`uniform_deviation_tail_bound_separable_of_dudley` はすでに entropy-form の E2E 評価である。ただし事象包含を定理内で再証明しているため、12.2 の標本依存 bridge を使う薄い corollary に整理する。
+
+さらに
+
+$$
+\Pr\left\{
+  \operatorname{UD}_n
+  \ge
+  2D_\alpha(S)
+  +3b\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}
+\le\delta
+$$
+
+という `δ` 形式を追加する。
+
+具体的な数値だけからなる Dudley E2E 例には、Lipschitz 関数、RKHS、ニューラルネットワークなどの被覆数評価が別途必要である。この phase では新しいモデルの被覆数評価までは扱わず、観測標本上の entropy integral を残すところを Dudley 経路の E2E とする。
+
+### 12.7 `Main.lean` の構成
+
+線形予測器の節は次の順に整理する。
+
+1. 決定論的閾値の E2E tail。
+2. 標本依存閾値の E2E tail。
+3. 必要なら期待値版・期待 Rademacher 複雑度版。
+4. 固定標本 wrapper。
+
+既存の
+
+```lean
+linear_predictor_l2_bound
+linear_predictor_l1_bound
+```
+
+は下位ファイルの定理を再公開するだけなので、E2E の主例からは外す。ただし公開 API の互換性を避けるため、この phase では削除せず、低水準 wrapper として残す。
+
+最終定理の docstring には、複雑度項、集中項、確率上界を明記し、「経験評価」「期待評価」「高確率 E2E 評価」を区別する。
+
+### 12.8 実装順と完了条件
+
+実装順は次のとおりとする。
+
+1. 標本依存 `C S` を受け取る共通 bridge。
+2. `ε` 形式から `δ` 形式への共通変換。
+3. $\ell_2$ の標本依存経験評価と、その一様版への系。
+4. $\ell_2$ の二種類の E2E 定理。
+5. $\ell_1/\ell_\infty$ の標本依存経験評価と、その一様版への系。
+6. $\ell_1/\ell_\infty$ の二種類の E2E 定理。
+7. Dudley 定理の共通 bridge 利用と `δ` 形式。
+8. `Main.lean`、`README.md`、`note/summary.md` の再構成。
+9. `lake build`、未完証明検索、公開入口からの `#check`。
+
+完了条件は、`Main.lean` の各モデル例の最終定理が次を満たすことである。
+
+- 結論が標本分布に関する確率評価である。
+- 閾値に未評価の `rademacherComplexity` または
+  `empiricalRademacherComplexity` が残らない。
+- 複雑度項と集中項が区別されている。
+- 決定論的版と標本依存版の違いが theorem name と docstring から分かる。
+- $n>0$, $0<\delta\le1$、正の半径など、平方根・対数・除算に必要な仮定が主張に現れる。
