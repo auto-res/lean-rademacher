@@ -1,6 +1,6 @@
 import Mathlib.Analysis.InnerProductSpace.PiL2
-import FoML.Massart
-import FoML.RademacherVariableProperty
+import FoML.Entropy.Massart
+import FoML.Rademacher.Signs
 
 universe v
 
@@ -23,6 +23,86 @@ def L1Ball (W : ℝ) : Type :=
 def LinftyBall (X : ℝ) : Type :=
   { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ X }
 
+noncomputable instance {d : ℕ} {W : ℝ} : MetricSpace (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (MetricSpace { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+noncomputable instance {d : ℕ} {Xinf : ℝ} : MetricSpace (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (MetricSpace
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+instance {d : ℕ} {W : ℝ} : MeasurableSpace (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (MeasurableSpace { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+instance {d : ℕ} {Xinf : ℝ} : MeasurableSpace (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (MeasurableSpace
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+instance {d : ℕ} {W : ℝ} : BorelSpace (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (BorelSpace { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+instance {d : ℕ} {Xinf : ℝ} : BorelSpace (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (BorelSpace
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+instance {d : ℕ} {W : ℝ} : SecondCountableTopology (L1Ball (d := d) W) :=
+  inferInstanceAs
+    (SecondCountableTopology
+      { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W })
+
+instance {d : ℕ} {Xinf : ℝ} : SecondCountableTopology (LinftyBall (d := d) Xinf) :=
+  inferInstanceAs
+    (SecondCountableTopology
+      { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf })
+
+lemma nonempty_L1Ball {d : ℕ} {W : ℝ} (hW : 0 ≤ W) :
+    Nonempty (L1Ball (d := d) W) :=
+  ⟨⟨0, by simpa [l1Norm] using hW⟩⟩
+
+lemma nonempty_LinftyBall {d : ℕ} {Xinf : ℝ} (hX : 0 ≤ Xinf) :
+    Nonempty (LinftyBall (d := d) Xinf) :=
+  ⟨⟨0, fun j ↦ by simpa using hX⟩⟩
+
+/-- Linear prediction on an `ℓ₁` weight ball and coordinatewise bounded input space. -/
+noncomputable def linearPredictorL1
+    {d : ℕ} {Xinf W : ℝ}
+    (w : L1Ball (d := d) W) (x : LinftyBall (d := d) Xinf) : ℝ :=
+  ∑ j : Fin d, w.1 j * x.1 j
+
+/--
+The largest coordinatewise empirical `ℓ₂` radius, normalized by the sample
+size. This is the sample-dependent geometric quantity in the `ℓ₁/ℓ∞`
+Rademacher-complexity estimate.
+-/
+noncomputable def linearPredictorL1SampleRadius
+    {d n : ℕ} {Xinf : ℝ}
+    (S : Fin n → LinftyBall (d := d) Xinf) : ℝ :=
+  (n : ℝ)⁻¹ *
+    ⨆ j : Fin d, Real.sqrt (∑ k : Fin n, |(S k).1 j| ^ 2)
+
+lemma continuous_linearPredictorL1_weight
+    {d : ℕ} {Xinf W : ℝ} (x : LinftyBall (d := d) Xinf) :
+    Continuous fun w : L1Ball (d := d) W ↦ linearPredictorL1 w x := by
+  unfold linearPredictorL1
+  change Continuous fun w :
+    { w : EuclideanSpace ℝ (Fin d) // l1Norm (d := d) w ≤ W } ↦
+      ∑ j : Fin d, w.1 j * x.1 j
+  fun_prop
+
+lemma continuous_linearPredictorL1_input
+    {d : ℕ} {Xinf W : ℝ} (w : L1Ball (d := d) W) :
+    Continuous fun x : LinftyBall (d := d) Xinf ↦ linearPredictorL1 w x := by
+  unfold linearPredictorL1
+  change Continuous fun x :
+    { x : EuclideanSpace ℝ (Fin d) // ∀ j : Fin d, |x j| ≤ Xinf } ↦
+      ∑ j : Fin d, w.1 j * x.1 j
+  fun_prop
+
 -- sign as real
 noncomputable def boolSign (b : Bool) : ℝ := if b then (1:ℝ) else (-1:ℝ)
 
@@ -32,14 +112,6 @@ lemma abs_boolSign (b : Bool) : |boolSign b| = 1 := by
 -- signed coordinate function class: (j,b) ↦ sign(b) * x_j
 noncomputable def coordSigned (jb : Fin d × Bool) (x : EuclideanSpace ℝ (Fin d)) : ℝ :=
   boolSign jb.2 * x jb.1
-
--- restriction to a finite set via Massart's F_on (we take univ)
-abbrev CoordIndex (d : Nat) :=
-  { jb : Fin d × Bool // jb ∈ (Finset.univ : Finset (Fin d × Bool)) }
-
-noncomputable def coordSignedOn (x : EuclideanSpace ℝ (Fin d)) :
-    CoordIndex d → ℝ :=
-  fun jb => coordSigned (d := d) jb.1 x
 
 -- helper: |sum_j w_j z_j| ≤ (∑|w_j|)*M if |z_j|≤M
 lemma abs_sum_mul_le_l1_mul {w z : EuclideanSpace ℝ (Fin d)} {M : ℝ}
@@ -74,20 +146,34 @@ lemma abs_sum_mul_le_l1_mul {w z : EuclideanSpace ℝ (Fin d)} {M : ℝ}
     _ = (∑ j : Fin d, |w j|) * M := h3
     _ = (l1Norm (d := d) w) * M := rfl
 
+/-- Pointwise boundedness needed by the generalization theorem. -/
+lemma abs_linearPredictorL1_le
+    {d : ℕ} {Xinf W : ℝ} (hX : 0 ≤ Xinf)
+    (w : L1Ball (d := d) W) (x : LinftyBall (d := d) Xinf) :
+    |linearPredictorL1 w x| ≤ Xinf * W := by
+  calc
+    |linearPredictorL1 w x|
+        ≤ l1Norm (d := d) w.1 * Xinf := by
+          exact abs_sum_mul_le_l1_mul
+            (w := w.1) (z := x.1) x.property
+    _ ≤ W * Xinf := mul_le_mul_of_nonneg_right w.property hX
+    _ = Xinf * W := mul_comm W Xinf
+
 /-
-Main theorem: Lasso / ℓ1 bound
-R_n ≤ X∞ * W * sqrt(2*log(2d)/n)
+Core sample-dependent Lasso / ℓ1 bound. The ambient-radius estimate is
+derived below by bounding `linearPredictorL1SampleRadius`.
 -/
-theorem linear_predictor_l1_bound'
+theorem linear_predictor_l1_bound_of_sample'
     (Xinf W : ℝ)
-    (hX : 0 ≤ Xinf) (hW : 0 ≤ W)
+    (hW : 0 ≤ W)
     (d_pos : 0 < d) (n_pos : 0 < n)
     (Y' : Fin n → LinftyBall (d := d) Xinf)
     (w' : ι → L1Ball (d := d) W) :
     empiricalRademacherComplexity n
       (fun i a => (∑ j : Fin d, (w' i).1 j * a j))
       (Subtype.val ∘ Y') ≤
-      (Xinf * W / Real.sqrt (n : ℝ)) * Real.sqrt (2 * Real.log (2 * d)) := by
+      W * linearPredictorL1SampleRadius Y' *
+        Real.sqrt (2 * Real.log (2 * d)) := by
   classical
 
   -- (1) coordinate-signed class bound via Massart
@@ -131,34 +217,21 @@ theorem linear_predictor_l1_bound'
         -- |sign*x_j| ≤ X∞
         have hx := (Y' i).2 jb.1
         simpa [coordSigned, abs_mul, abs_boolSign] using hx)
-      hs
 
-  -- (2) bound the sup term by X∞/sqrt(n)
+  -- (2) retain the coordinatewise empirical `ℓ₂` radius of the sample
   have hsup :
       (Finset.sup' (Finset.univ : Finset (Fin d × Bool)) hs
         (fun jb =>
           Real.sqrt (∑ i : Fin n,
             ((n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)|) ^ 2)))
-      ≤ Xinf / Real.sqrt (n : ℝ) := by
+      ≤ linearPredictorL1SampleRadius Y' := by
     have hnR : 0 < (n : ℝ) := by exact_mod_cast n_pos
-    have hconst_nonneg : 0 ≤ (n : ℝ)⁻¹ * Xinf := by
-      exact mul_nonneg (inv_nonneg.mpr (le_of_lt hnR)) hX
-    have hsqrt_const :
-        Real.sqrt ((n : ℝ) * (((n : ℝ)⁻¹ * Xinf) ^ 2)) = Xinf / Real.sqrt (n : ℝ) := by
-      calc
-        Real.sqrt ((n : ℝ) * (((n : ℝ)⁻¹ * Xinf) ^ 2))
-            = Real.sqrt (n : ℝ) * Real.sqrt (((n : ℝ)⁻¹ * Xinf) ^ 2) := by
-              rw [Real.sqrt_mul (le_of_lt hnR)]
-        _ = Real.sqrt (n : ℝ) * ((n : ℝ)⁻¹ * Xinf) := by
-              simp [Real.sqrt_sq_eq_abs, abs_of_nonneg hconst_nonneg]
-        _ = Xinf / Real.sqrt (n : ℝ) := by
-              have hn0 : (n : ℝ) ≠ 0 := by exact_mod_cast (Nat.ne_of_gt n_pos)
-              have hsqrt0 : Real.sqrt (n : ℝ) ≠ 0 := by
-                exact ne_of_gt (Real.sqrt_pos.2 hnR)
-              have hsq : (Real.sqrt (n : ℝ)) ^ 2 = (n : ℝ) := by
-                simp ---[pow_two] using Real.sq_sqrt (le_of_lt hnR)
-              field_simp [hn0, hsqrt0]
-              rw [hsq]
+    have hinv : 0 ≤ (n : ℝ)⁻¹ := inv_nonneg.mpr hnR.le
+    have hbdd :
+        BddAbove
+          (Set.range fun j : Fin d =>
+            Real.sqrt (∑ i : Fin n, |(Y' i).1 j| ^ 2)) :=
+      (Set.toFinite _).bddAbove
     refine Finset.sup'_le
       (s := (Finset.univ : Finset (Fin d × Bool)))
       (H := hs)
@@ -167,31 +240,35 @@ theorem linear_predictor_l1_bound'
           ((n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)|) ^ 2))
       ?_
     intro jb hjb
-    have hterm :
-        ∀ i : Fin n,
-          (((n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)|) ^ 2)
-            ≤ (((n : ℝ)⁻¹ * Xinf) ^ 2) := by
-      intro i
-      have hxi : |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)| ≤ Xinf := by
-        have hx := (Y' i).2 jb.1
-        simpa [coordSigned, abs_mul, abs_boolSign] using hx
-      have hmuli :
-          (n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)| ≤ (n : ℝ)⁻¹ * Xinf := by
-        exact mul_le_mul_of_nonneg_left hxi (inv_nonneg.mpr (le_of_lt hnR))
-      have hmuli_nonneg :
-          0 ≤ (n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)| := by
-        exact mul_nonneg (inv_nonneg.mpr (le_of_lt hnR)) (abs_nonneg _)
-      nlinarith
-    have hsum :
-        (∑ i : Fin n, (((n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)|) ^ 2))
-          ≤ ∑ i : Fin n, (((n : ℝ)⁻¹ * Xinf) ^ 2) := by
-      exact Finset.sum_le_sum (fun i hi => hterm i)
-    calc
-      Real.sqrt (∑ i : Fin n, (((n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)|) ^ 2))
-          ≤ Real.sqrt (∑ i : Fin n, (((n : ℝ)⁻¹ * Xinf) ^ 2)) := by
-            exact Real.sqrt_le_sqrt hsum
-      _ = Real.sqrt ((n : ℝ) * (((n : ℝ)⁻¹ * Xinf) ^ 2)) := by simp
-      _ = Xinf / Real.sqrt (n : ℝ) := hsqrt_const
+    have hsign :
+        Real.sqrt (∑ i : Fin n,
+          ((n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)|) ^ 2) =
+          (n : ℝ)⁻¹ *
+            Real.sqrt (∑ i : Fin n, |(Y' i).1 jb.1| ^ 2) := by
+      calc
+        _ = Real.sqrt
+            (((n : ℝ)⁻¹) ^ 2 *
+              ∑ i : Fin n, |(Y' i).1 jb.1| ^ 2) := by
+              apply congrArg Real.sqrt
+              rw [Finset.mul_sum]
+              apply Finset.sum_congr rfl
+              intro i hi
+              simp only [Function.comp_apply, coordSigned, abs_mul, abs_boolSign,
+                one_mul]
+              ring
+        _ = Real.sqrt (((n : ℝ)⁻¹) ^ 2) *
+            Real.sqrt (∑ i : Fin n, |(Y' i).1 jb.1| ^ 2) := by
+              rw [Real.sqrt_mul (sq_nonneg ((n : ℝ)⁻¹))]
+        _ = (n : ℝ)⁻¹ *
+            Real.sqrt (∑ i : Fin n, |(Y' i).1 jb.1| ^ 2) := by
+              rw [Real.sqrt_sq_eq_abs, abs_of_nonneg hinv]
+    change
+      Real.sqrt (∑ i : Fin n,
+        ((n : ℝ)⁻¹ * |coordSigned (d := d) jb ((Subtype.val ∘ Y') i)|) ^ 2) ≤
+        linearPredictorL1SampleRadius Y'
+    rw [hsign]
+    unfold linearPredictorL1SampleRadius
+    exact mul_le_mul_of_nonneg_left (le_ciSup hbdd jb.1) hinv
 
   -- log card = log(2d)
   have hcard : ((Finset.univ : Finset (Fin d × Bool)).card : ℝ) = 2 * d := by
@@ -203,7 +280,8 @@ theorem linear_predictor_l1_bound'
       empiricalRademacherComplexity_without_abs n
         (F_on (coordSigned (d := d)) (Finset.univ : Finset (Fin d × Bool)))
         (Subtype.val ∘ Y')
-      ≤ (Xinf / Real.sqrt (n : ℝ)) * Real.sqrt (2 * Real.log (2 * d)) := by
+      ≤ linearPredictorL1SampleRadius Y' *
+          Real.sqrt (2 * Real.log (2 * d)) := by
     have hmass' :
         empiricalRademacherComplexity_without_abs n
           (F_on (coordSigned (d := d)) (Finset.univ : Finset (Fin d × Bool)))
@@ -352,7 +430,149 @@ theorem linear_predictor_l1_bound'
         ≤ W * empiricalRademacherComplexity_without_abs n
             (F_on (coordSigned (d := d)) (Finset.univ : Finset (Fin d × Bool)))
             (Subtype.val ∘ Y') := hdual
-    _ ≤ W * ((Xinf / Real.sqrt (n : ℝ)) * Real.sqrt (2 * Real.log (2 * d))) := by
+    _ ≤ W * (linearPredictorL1SampleRadius Y' *
+        Real.sqrt (2 * Real.log (2 * d))) := by
       exact mul_le_mul_of_nonneg_left hcoord hW
-    _ = (Xinf * W / Real.sqrt (n : ℝ)) * Real.sqrt (2 * Real.log (2 * d)) := by
+    _ = W * linearPredictorL1SampleRadius Y' *
+        Real.sqrt (2 * Real.log (2 * d)) := by
       ring
+
+/--
+The coordinatewise empirical `ℓ₂` radius is at most the ambient
+coordinatewise radius divided by `sqrt n`.
+-/
+theorem linearPredictorL1SampleRadius_le
+    {Xinf : ℝ} (hX : 0 ≤ Xinf) (d_pos : 0 < d) (n_pos : 0 < n)
+    (S : Fin n → LinftyBall (d := d) Xinf) :
+    linearPredictorL1SampleRadius S ≤ Xinf / Real.sqrt (n : ℝ) := by
+  letI : Nonempty (Fin d) := ⟨⟨0, d_pos⟩⟩
+  have hnR : 0 < (n : ℝ) := by exact_mod_cast n_pos
+  have hinv : 0 ≤ (n : ℝ)⁻¹ := inv_nonneg.mpr hnR.le
+  have hcoord :
+      ∀ j : Fin d,
+        Real.sqrt (∑ k : Fin n, |(S k).1 j| ^ 2) ≤
+          Real.sqrt (n : ℝ) * Xinf := by
+    intro j
+    calc
+      Real.sqrt (∑ k : Fin n, |(S k).1 j| ^ 2)
+          ≤ Real.sqrt (∑ _k : Fin n, Xinf ^ 2) := by
+            apply Real.sqrt_le_sqrt
+            apply Finset.sum_le_sum
+            intro k hk
+            exact (sq_le_sq₀ (abs_nonneg _) hX).2 ((S k).2 j)
+      _ = Real.sqrt ((n : ℝ) * Xinf ^ 2) := by simp
+      _ = Real.sqrt (n : ℝ) * Xinf := by
+            rw [Real.sqrt_mul hnR.le, Real.sqrt_sq hX]
+  have hsup :
+      (⨆ j : Fin d, Real.sqrt (∑ k : Fin n, |(S k).1 j| ^ 2)) ≤
+        Real.sqrt (n : ℝ) * Xinf :=
+    ciSup_le hcoord
+  unfold linearPredictorL1SampleRadius
+  calc
+    (n : ℝ)⁻¹ *
+        ⨆ j : Fin d, Real.sqrt (∑ k : Fin n, |(S k).1 j| ^ 2)
+      ≤ (n : ℝ)⁻¹ * (Real.sqrt (n : ℝ) * Xinf) :=
+        mul_le_mul_of_nonneg_left hsup hinv
+    _ = Xinf / Real.sqrt (n : ℝ) := by
+      have hn0 : (n : ℝ) ≠ 0 := hnR.ne'
+      have hsqrt0 : Real.sqrt (n : ℝ) ≠ 0 := (Real.sqrt_pos.2 hnR).ne'
+      have hsq : Real.sqrt (n : ℝ) ^ 2 = (n : ℝ) :=
+        Real.sq_sqrt hnR.le
+      field_simp [hn0, hsqrt0]
+      rw [hsq]
+
+theorem linear_predictor_l1_bound'
+    (Xinf W : ℝ)
+    (hX : 0 ≤ Xinf) (hW : 0 ≤ W)
+    (d_pos : 0 < d) (n_pos : 0 < n)
+    (Y' : Fin n → LinftyBall (d := d) Xinf)
+    (w' : ι → L1Ball (d := d) W) :
+    empiricalRademacherComplexity n
+      (fun i a => (∑ j : Fin d, (w' i).1 j * a j))
+      (Subtype.val ∘ Y') ≤
+      (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) := by
+  calc
+    _ ≤ W * linearPredictorL1SampleRadius Y' *
+        Real.sqrt (2 * Real.log (2 * d)) :=
+      linear_predictor_l1_bound_of_sample'
+        (d := d) (n := n) (Xinf := Xinf) (W := W)
+        hW d_pos n_pos Y' w'
+    _ ≤ W * (Xinf / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) := by
+      exact mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left
+          (linearPredictorL1SampleRadius_le hX d_pos n_pos Y') hW)
+        (Real.sqrt_nonneg _)
+    _ = (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) := by ring
+
+/--
+Sample-dependent empirical Rademacher-complexity bound for the full class of
+`ℓ₁`-bounded linear predictors.
+-/
+theorem linear_predictor_l1_empirical_bound_of_sample
+    (d n : ℕ) (Xinf W : ℝ) (hW : 0 ≤ W)
+    (d_pos : 0 < d) (n_pos : 0 < n)
+    (S : Fin n → LinftyBall (d := d) Xinf) :
+    empiricalRademacherComplexity n
+        (linearPredictorL1 :
+          L1Ball (d := d) W → LinftyBall (d := d) Xinf → ℝ) S
+      ≤ W * linearPredictorL1SampleRadius S *
+        Real.sqrt (2 * Real.log (2 * d)) := by
+  letI : Nonempty (L1Ball (d := d) W) :=
+    nonempty_L1Ball hW
+  change empiricalRademacherComplexity n
+    (fun (w : L1Ball (d := d) W) (x : LinftyBall (d := d) Xinf) ↦
+      ∑ j : Fin d, w.1 j * x.1 j) S
+      ≤ W * linearPredictorL1SampleRadius S *
+        Real.sqrt (2 * Real.log (2 * d))
+  calc
+    _ = empiricalRademacherComplexity n
+        (fun (w : L1Ball (d := d) W) (x : EuclideanSpace ℝ (Fin d)) ↦
+          ∑ j : Fin d, w.1 j * x j) (Subtype.val ∘ S) := by
+          exact empiricalRademacherComplexity_comp
+            (n := n)
+            (g := fun (w : L1Ball (d := d) W) (x : EuclideanSpace ℝ (Fin d)) ↦
+              ∑ j : Fin d, w.1 j * x j)
+            (q := Subtype.val) S
+    _ ≤ W * linearPredictorL1SampleRadius S *
+        Real.sqrt (2 * Real.log (2 * d)) :=
+      linear_predictor_l1_bound_of_sample'
+        (d := d) (n := n) (Xinf := Xinf) (W := W)
+        hW d_pos n_pos S id
+
+/--
+Empirical Rademacher-complexity bound for the full class of `ℓ₁`-bounded
+linear predictors on a coordinatewise bounded input space.
+-/
+theorem linear_predictor_l1_empirical_bound
+    (d n : ℕ) (Xinf W : ℝ) (hX : 0 ≤ Xinf) (hW : 0 ≤ W)
+    (d_pos : 0 < d) (n_pos : 0 < n)
+    (S : Fin n → LinftyBall (d := d) Xinf) :
+    empiricalRademacherComplexity n
+        (linearPredictorL1 :
+          L1Ball (d := d) W → LinftyBall (d := d) Xinf → ℝ) S
+      ≤ (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) := by
+  letI : Nonempty (L1Ball (d := d) W) :=
+    nonempty_L1Ball hW
+  change empiricalRademacherComplexity n
+    (fun (w : L1Ball (d := d) W) (x : LinftyBall (d := d) Xinf) ↦
+      ∑ j : Fin d, w.1 j * x.1 j) S
+      ≤ (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d))
+  calc
+    _ = empiricalRademacherComplexity n
+        (fun (w : L1Ball (d := d) W) (x : EuclideanSpace ℝ (Fin d)) ↦
+          ∑ j : Fin d, w.1 j * x j) (Subtype.val ∘ S) := by
+          exact empiricalRademacherComplexity_comp
+            (n := n)
+            (g := fun (w : L1Ball (d := d) W) (x : EuclideanSpace ℝ (Fin d)) ↦
+              ∑ j : Fin d, w.1 j * x j)
+            (q := Subtype.val) S
+    _ ≤ (Xinf * W / Real.sqrt (n : ℝ)) *
+        Real.sqrt (2 * Real.log (2 * d)) :=
+      linear_predictor_l1_bound'
+        (d := d) (n := n) (Xinf := Xinf) (W := W)
+        hX hW d_pos n_pos S id

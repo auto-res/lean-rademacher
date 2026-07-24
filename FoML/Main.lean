@@ -1,250 +1,562 @@
-import FoML.Rademacher
-import FoML.McDiarmid
-import FoML.BoundedDifference
-import FoML.SeparableSpaceSup
-import FoML.LinearPredictorL2
-import FoML.LinearPredictorL1
-import FoML.DudleyEntropy
+import FoML
+
+/-!
+# End-to-end examples
+
+This is the main user-facing entry point of `lean-rademacher`. The proofs
+below deliberately repeat the principal applications as short `example`s:
+the reusable implementation lives in the imported generalization modules,
+while this file shows which hypotheses a user needs to provide.
+
+## The generic bridge
+
+Suppose a separable hypothesis class `F` satisfies the fixed-sample estimate
+
+$$
+\widehat{\mathfrak R}_n(F;S)\le C
+\qquad\text{for every sample }S.
+$$
+
+If every function is bounded by `b`, then the bridge gives
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n(F;S)
+  \ge 2C+b\sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}\le\delta.
+$$
+
+The first example is the Lean form of this reusable step.
+-/
 
 section
 
 universe u v w
 
-open MeasureTheory ProbabilityTheory Real
+open MeasureTheory ProbabilityTheory Real TopologicalSpace
 open scoped ENNReal
 
 variable {n : ℕ}
-variable {Ω : Type u} [MeasurableSpace Ω] {ι : Type v} {𝒳 : Type w}
-variable {μ : Measure Ω} {f : ι → 𝒳 → ℝ}
+variable {Ω : Type u} [MeasurableSpace Ω] {H : Type v} {𝒳 : Type w}
+variable {μ : Measure Ω}
 
 local notation "μⁿ" => Measure.pi (fun _ ↦ μ)
 
-/-- The expected empirical uniform deviation is bounded by twice the Rademacher complexity. -/
-theorem uniform_deviation_expectation_le_two_smul_rademacher_complexity
-    [Nonempty ι] [Countable ι] [IsProbabilityMeasure μ]
-    (hn : 0 < n) (X : Ω → 𝒳)
-    (hf : ∀ i, Measurable (f i ∘ X))
-    {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b) :
-    μⁿ[fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω)] ≤ 2 • rademacherComplexity n f μ X := by
-  apply le_of_mul_le_mul_left _ (Nat.cast_pos.mpr hn)
-  convert expectation_le_rademacher (μ := μ) (n := n) hf hb hf' using 1
-  · rw [← integral_const_mul]
-    apply integral_congr_ae (Filter.EventuallyEq.of_eq _)
-    ext ω
-    rw [uniformDeviation, Real.mul_iSup_of_nonneg (by norm_num)]
-    apply congr_arg _ (funext (fun i ↦ ?_))
-    rw [← show |(n : ℝ)| = n from abs_of_nonneg (by norm_num), ← abs_mul]
-    apply congr_arg
-    simp only [Nat.abs_cast, Function.comp_apply, nsmul_eq_mul]
-    field_simp
-  · ring
-
-/-- McDiarmid tail bound for the centered empirical uniform deviation. -/
-theorem uniform_deviation_mcdiarmid_tail
-    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι]
+/--
+Generic end-to-end use: substitute a deterministic empirical Rademacher
+upper bound into the separable-class confidence theorem.
+-/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty H]
+    [TopologicalSpace H] [SeparableSpace H] [FirstCountableTopology H]
     [IsProbabilityMeasure μ]
-    {X : Ω → 𝒳} (hX : Measurable X)
-    (hf : ∀ i, Measurable (f i))
-    {b : ℝ} (hb : 0 ≤ b) (hf': ∀ i x, |f i x| ≤ b)
-    {t : ℝ} (ht' : t * b ^ 2 ≤ 1 / 2)
-    {ε : ℝ} (hε : 0 ≤ ε) :
-    (μⁿ (fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω) -
-      μⁿ[fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω)] ≥ ε)).toReal ≤
-        (- ε ^ 2 * t * n).exp := by
-  by_cases hn : n = 0
-  · simpa [hn] using measureReal_le_one
-  have hn : 0 < n := Nat.pos_of_ne_zero hn
-  have hn' : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
-  let c : Fin n → ℝ := fun i ↦ (n : ℝ)⁻¹ * 2 * b
-  have ht' : (n : ℝ) * t / 2 * ∑ i, (c i) ^ 2 ≤ 1 := by
-    apply le_of_mul_le_mul_left _ (show (0 : ℝ) < 1 / 2 from by linarith)
-    calc
-      _ = t * b ^ 2 := by
-        simp only [c, Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
-        field_simp
-      _ ≤ _ := by linarith
-  have hfX : ∀ i, Measurable (f i ∘ X) := fun i => (hf i).comp hX
-  calc
-    _ ≤ (-2 * ε ^ 2 * (n * t / 2)).exp :=
-      mcdiarmid_inequality_pos' hX (uniformDeviation_bounded_difference hn X hfX hb hf')
-        (uniformDeviation_measurable X hf) hε ht'
-    _ = _ := congr_arg _ (by ring)
-
-/-- (Main Theorem) Countable-class tail bound via symmetrization and McDiarmid's inequality. -/
-theorem uniform_deviation_tail_bound_countable
-    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι] [IsProbabilityMeasure μ]
-    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (F : H → 𝒳 → ℝ) (hF_meas : ∀ h, Measurable (F h))
     (X : Ω → 𝒳) (hX : Measurable X)
-    {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b)
-    {t : ℝ} (ht' : t * b ^ 2 ≤ 1 / 2)
-    {ε : ℝ} (hε : 0 ≤ ε) :
-    (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
-      (- ε ^ 2 * t * n).exp := by
-  by_cases hn : n = 0
-  · simpa [hn] using measureReal_le_one
-  have hn : 0 < n := Nat.pos_of_ne_zero hn
-  apply le_trans _ (uniform_deviation_mcdiarmid_tail (μ := μ) hX hf hb hf' ht' hε)
-  simp only [ge_iff_le, ne_eq, measure_ne_top, not_false_eq_true, ENNReal.toReal_le_toReal]
-  apply measure_mono
-  intro ω h
-  have : 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω) := h
-  have : μⁿ[fun ω ↦ uniformDeviation n f μ X (X ∘ ω)] ≤ 2 • rademacherComplexity n f μ X :=
-    uniform_deviation_expectation_le_two_smul_rademacher_complexity hn X (fun i ↦ (hf i).comp hX) hb hf'
-  show ε ≤ uniformDeviation n f μ X (X ∘ ω) - μⁿ[fun ω ↦ uniformDeviation n f μ X (X ∘ ω)]
-  linarith
+    {b C δ : ℝ} (hb : 0 < b) (hF_bound : ∀ h x, |F h x| ≤ b)
+    (hF_cont : ∀ x : 𝒳, Continuous fun h ↦ F h x)
+    (hn : 0 < n)
+    (hC : ∀ S : Fin n → 𝒳, empiricalRademacherComplexity n F S ≤ C)
+    (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * C + b * Real.sqrt (2 * Real.log (1 / δ) / n) ≤
+        uniformDeviation n F μ X (X ∘ S)}).toReal ≤ δ := by
+  exact uniform_deviation_tail_bound_separable_of_empirical_le_delta
+    (μ := μ) hn F hF_meas X hX hb hF_bound hF_cont hC hδ hδ_one
 
-/-- (Main Theorem) Optimized countable-class tail bound with `t = 1 / (2 * b^2)`. -/
-theorem uniform_deviation_tail_bound_countable_of_pos
-    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι] [Countable ι] [IsProbabilityMeasure μ]
-    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
-    (X : Ω → 𝒳) (hX : Measurable X)
-    {b : ℝ} (hb : 0 < b) (hf' : ∀ i x, |f i x| ≤ b)
-    {ε : ℝ} (hε : 0 ≤ ε) :
-    (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
-      (- ε ^ 2 * n / (2 * b ^ 2)).exp := by
-  let t := 1 / (2 * b ^ 2)
-  have ht : 0 ≤ t := div_nonneg (by norm_num) (mul_nonneg (by norm_num) (sq_nonneg b))
-  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by dsimp only [t]; field_simp)
-  calc
-    _ ≤ (- ε ^ 2 * t * n).exp :=
-      uniform_deviation_tail_bound_countable (μ := μ) f hf X hX (le_of_lt hb) hf' ht' hε
-    _ = _ := by dsimp only [t]; field_simp
+/-!
+## The observed empirical complexity
 
-open TopologicalSpace
+The basic sample-dependent theorem keeps the empirical Rademacher complexity
+of the observed sample in the threshold:
 
-lemma empiricalRademacherComplexity_eq
-    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι]
-    (n : ℕ) {f : ι → (𝒳 → ℝ)} (hf : ∀ x : 𝒳, Continuous fun i ↦ f i x) (S : Fin n → 𝒳) :
-    empiricalRademacherComplexity n f S = empiricalRademacherComplexity n (f ∘ denseSeq ι) S := by
-  dsimp [empiricalRademacherComplexity]
-  congr
-  ext i
-  apply separableSpaceSup_eq_real
-  continuity
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n(F;S)
+  \ge 2\widehat{\mathfrak R}_n(F;S)+3\varepsilon
+\right\}
+\le
+2\exp\!\left(-\frac{n\varepsilon^2}{2b^2}\right).
+$$
 
-lemma RademacherComplexity_eq
-    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι]
-    (n : ℕ) (f : ι → (𝒳 → ℝ)) (hf : ∀ x : 𝒳, Continuous fun i ↦ f i x)
-    (μ : Measure Ω) (X : Ω → 𝒳) :
-    rademacherComplexity n f μ X = rademacherComplexity n (f ∘ denseSeq ι) μ X := by
-  dsimp [rademacherComplexity]
-  congr
-  ext i
-  exact empiricalRademacherComplexity_eq n hf (X ∘ i)
+Thus this single statement exhibits the three commonly used variants
+requested at once: a separable hypothesis class, a high-probability estimate,
+and empirical rather than expected Rademacher complexity.
+-/
 
-lemma uniformDeviation_eq
-    [MeasurableSpace 𝒳]
-    [Nonempty ι] [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
-    (n : ℕ) (f : ι → 𝒳 → ℝ)
-    (hf : ∀ i, Measurable (f i))
-    (X : Ω → 𝒳) (hX : Measurable X)
-    {b : ℝ} (hf' : ∀ i x, |f i x| ≤ b)
-    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
-    (μ : Measure Ω) [IsFiniteMeasure μ] :
-    uniformDeviation n f μ X = uniformDeviation n (f ∘ denseSeq ι) μ X := by
-  ext y
-  dsimp [uniformDeviation]
-  apply separableSpaceSup_eq_real
-  apply Continuous.abs
-  apply Continuous.sub
-  · continuity
-  · have : ∀ (x : ι), ∀ᵐ (a : Ω) ∂μ, ‖f x (X a)‖ ≤ b := by
-      intro i
-      filter_upwards with ω
-      exact hf' i (X ω)
-    apply MeasureTheory.continuous_of_dominated _ this
-    · apply MeasureTheory.integrable_const
-    · filter_upwards with ω
-      continuity
-    · intro i
-      apply Measurable.aestronglyMeasurable
-      measurability
-
-/-- (Main Theorem) Separable-class tail bound obtained via reduction to a countable dense subclass. -/
-theorem uniform_deviation_tail_bound_separable
-    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
-    [TopologicalSpace ι] [SeparableSpace ι]  [FirstCountableTopology ι]
+/-- Basic separable high-probability bound using observed empirical complexity. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty H]
+    [TopologicalSpace H] [SeparableSpace H] [FirstCountableTopology H]
     [IsProbabilityMeasure μ]
-    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (F : H → 𝒳 → ℝ) (hF_meas : ∀ h, Measurable (F h))
     (X : Ω → 𝒳) (hX : Measurable X)
-    {b : ℝ} (hb : 0 ≤ b) (hf' : ∀ i x, |f i x| ≤ b)
-    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
-    {t : ℝ} (ht' : t * b ^ 2 ≤ 1 / 2)
+    {b : ℝ} (hb : 0 < b) (hF_bound : ∀ h x, |F h x| ≤ b)
+    (hF_cont : ∀ x : 𝒳, Continuous fun h ↦ F h x)
     {ε : ℝ} (hε : 0 ≤ ε) :
-    (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
-      (- ε ^ 2 * t * n).exp := by
-  let f' := f ∘ denseSeq ι
-  calc
-    _ = (μⁿ (fun ω ↦ 2 • rademacherComplexity n f' μ X + ε ≤ uniformDeviation n f' μ X (X ∘ ω))).toReal := by
-      congr
-      ext ω
-      rw [RademacherComplexity_eq n f hf'' μ X]
-      rw [uniformDeviation_eq n f hf X hX hf' hf'' μ]
-    _ ≤ (- ε ^ 2 * t * n).exp := by
-      apply uniform_deviation_tail_bound_countable f' _ X hX hb _ ht' hε
-      · intro i
-        measurability
-      · exact fun i x ↦ hf' (denseSeq ι i) x
+    (μⁿ {S : Fin n → Ω |
+      2 * empiricalRademacherComplexity n F (X ∘ S) + 3 * ε ≤
+        uniformDeviation n F μ X (X ∘ S)}).toReal ≤
+      2 * (-ε ^ 2 * n / (2 * b ^ 2)).exp := by
+  exact uniform_deviation_tail_bound_separable_of_empirical_complexity
+    (μ := μ) F hF_meas X hX hb hF_bound hF_cont hε
 
-/-- (Main Theorem) Optimized separable-class tail bound with `t = 1 / (2 * b^2)`. -/
-theorem uniform_deviation_tail_bound_separable_of_pos
-    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty ι]
-    [TopologicalSpace ι] [SeparableSpace ι] [FirstCountableTopology ι]
+/-!
+## `ℓ₂` linear predictors
+
+For weights with $\lVert w\rVert_2\le W$ and inputs with
+$\lVert x\rVert_2\le X$, the deterministic end-to-end estimate is
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n
+  \ge \frac{2XW}{\sqrt n}
+    +XW\sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}\le\delta.
+$$
+
+`linear_predictor_l2_uniform_deviation_tail_bound_delta` obtains this result
+by composing the fixed-sample linear estimate with the generic bridge.
+-/
+
+/-- Main deterministic-threshold example for the `ℓ₂` linear class. -/
+example
     [IsProbabilityMeasure μ]
-    (f : ι → 𝒳 → ℝ) (hf : ∀ i, Measurable (f i))
+    (d : ℕ) (W X : ℝ) (hn : 0 < n) (hX : 0 < X) (hW : 0 < W)
+    (Z : Ω → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (hZ : Measurable Z) {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * (X * W / Real.sqrt (n : ℝ)) +
+          (X * W) * Real.sqrt (2 * Real.log (1 / δ) / n) ≤
+        uniformDeviation n
+          (linearPredictorL2 :
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+              Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ)
+          μ Z (Z ∘ S)}).toReal ≤ δ := by
+  exact linear_predictor_l2_uniform_deviation_tail_bound_delta
+    d W X hn hX hW Z hZ hδ hδ_one
+
+/-!
+The sample-dependent variant retains the observed quadratic radius:
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n
+  \ge \frac{2W}{n}\sqrt{\sum_k\lVert Z_k\rVert_2^2}
+    +3XW\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}\le\delta.
+$$
+-/
+
+/-- Main sample-dependent example for the `ℓ₂` linear class. -/
+example
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (W X : ℝ) (hn : 0 < n) (hX : 0 < X) (hW : 0 < W)
+    (Z : Ω → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
+    (hZ : Measurable Z) {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 *
+          (W * (n : ℝ)⁻¹ *
+            Real.sqrt
+              (∑ k : Fin n,
+                ‖(Z (S k) : EuclideanSpace ℝ (Fin d))‖ ^ 2)) +
+        3 * ((X * W) * Real.sqrt (2 * Real.log (2 / δ) / n)) ≤
+          uniformDeviation n
+            (linearPredictorL2 :
+              Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+                Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ)
+            μ Z (Z ∘ S)}).toReal ≤ δ := by
+  exact linear_predictor_l2_uniform_deviation_tail_bound_of_sample_delta
+    d W X hn hX hW Z hZ hδ hδ_one
+
+/-!
+## `ℓ₁/ℓ∞` linear predictors
+
+For $\lVert w\rVert_1\le W$ and $\lVert x\rVert_\infty\le X_\infty$, let
+
+$$
+Q_\infty(S)
+=\frac1n\sup_{j<d}\sqrt{\sum_k |S_{k,j}|^2}.
+$$
+
+The sample-dependent estimate is
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n
+  \ge 2WQ_\infty(S)\sqrt{2\log(2d)}
+    +3X_\infty W\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}\le\delta.
+$$
+-/
+
+/-- Main sample-dependent example for the `ℓ₁/ℓ∞` linear class. -/
+example
+    [IsProbabilityMeasure μ]
+    (d : ℕ) (Xinf W : ℝ) (hX : 0 < Xinf) (hW : 0 < W)
+    (hd : 0 < d) (hn : 0 < n)
+    (Z : Ω → LinftyBall (d := d) Xinf) (hZ : Measurable Z)
+    {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 *
+          (W * linearPredictorL1SampleRadius (Z ∘ S) *
+            Real.sqrt (2 * Real.log (2 * d))) +
+        3 * ((Xinf * W) * Real.sqrt (2 * Real.log (2 / δ) / n)) ≤
+          uniformDeviation n
+            (linearPredictorL1 :
+              L1Ball (d := d) W → LinftyBall (d := d) Xinf → ℝ)
+            μ Z (Z ∘ S)}).toReal ≤ δ := by
+  exact linear_predictor_l1_uniform_deviation_tail_bound_of_sample_delta
+    d Xinf W hX hW hd hn Z hZ hδ hδ_one
+
+/-!
+## Feature-map RKHS predictors
+
+Let $\Phi:\mathcal X\to\mathcal H$ map into a real Hilbert space and define
+
+$$
+K(x,y)=\langle\Phi(x),\Phi(y)\rangle,
+\qquad
+f_w(x)=\langle w,\Phi(x)\rangle,
+\qquad
+\lVert w\rVert\le\Lambda.
+$$
+
+The sample-dependent form of Mohri, Rostamizadeh, and Talwalkar,
+Theorem 6.12 retains the observed kernel trace:
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n
+  \ge \frac{2\Lambda}{n}
+      \sqrt{\sum_k K(X_k,X_k)}
+    +3r\Lambda\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}\le\delta.
+$$
+-/
+
+/-- Main RKHS example retaining the observed kernel trace. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳]
+    [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
+    [MeasurableSpace H] [BorelSpace H] [SeparableSpace H]
+    [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    (Φ : 𝒳 → H) (hΦ : Measurable Φ)
+    (Λ r : ℝ) (hΛ : 0 < Λ) (hr : 0 < r)
+    (hdiag : ∀ x, kernelOfFeatureMap Φ x x ≤ r ^ 2)
     (X : Ω → 𝒳) (hX : Measurable X)
-    {b : ℝ} (hb : 0 < b) (hf' : ∀ i x, |f i x| ≤ b)
-    (hf'' : ∀ x : 𝒳, Continuous fun i ↦ f i x)
-    {ε : ℝ} (hε : 0 ≤ ε) :
-    (μⁿ (fun ω ↦ 2 • rademacherComplexity n f μ X + ε ≤ uniformDeviation n f μ X (X ∘ ω))).toReal ≤
-      (- ε ^ 2 * n / (2 * b ^ 2)).exp := by
-  let t := 1 / (2 * b ^ 2)
-  have ht : 0 ≤ t := div_nonneg (by norm_num) (mul_nonneg (by norm_num) (sq_nonneg b))
-  have ht' : t * b ^ 2 ≤ 1 / 2 := le_of_eq (by dsimp only [t]; field_simp)
-  calc
-    _ ≤ (- ε ^ 2 * t * n).exp :=
-      uniform_deviation_tail_bound_separable (μ := μ) f hf X hX (le_of_lt hb) hf' hf'' ht' hε
-    _ = _ := by dsimp only [t]; field_simp
+    {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * (Λ * (n : ℝ)⁻¹ * Real.sqrt (kernelTrace Φ (X ∘ S))) +
+          3 * ((r * Λ) *
+            Real.sqrt (2 * Real.log (2 / δ) / n)) ≤
+        uniformDeviation n
+          (rkhsPredictor Φ :
+            Metric.closedBall (0 : H) Λ → 𝒳 → ℝ)
+          μ X (X ∘ S)}).toReal ≤ δ := by
+  exact rkhs_uniformDeviation_tail_bound_kernelTrace_delta
+    hn Φ hΦ Λ r hΛ hr hdiag X hX hδ hδ_one
 
-local notation "⟪" x ", " y "⟫" => @inner ℝ _ _ x y
+/-!
+Replacing every diagonal value by $K(x,x)\le r^2$ gives the deterministic
+endpoint
 
-/-- Example: L2 linear predictor bound for empirical Rademacher complexity. -/
-theorem linear_predictor_l2_bound
-    [Nonempty ι]
-    (d : ℕ)
-    (W X : ℝ)
-    (hx : 0 ≤ X) (hw : 0 ≤ W)
-    (Y' : Fin n → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X)
-    (w' : ι → Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W):
-    empiricalRademacherComplexity
-      n (fun (i : ι) a ↦ ⟪((Subtype.val ∘ w') i), a⟫) (Subtype.val ∘ Y') ≤
-    X * W / √(n : ℝ) := by
-  exact linear_predictor_l2_bound' (d := d) (n := n) (W := W) (X := X) hx hw Y' w'
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n
+  \ge \frac{2r\Lambda}{\sqrt n}
+    +r\Lambda\sqrt{\frac{2\log(1/\delta)}{n}}
+\right\}\le\delta.
+$$
 
-/-- Example: L1/L∞ linear predictor bound for empirical Rademacher complexity. -/
-theorem linear_predictor_l1_bound
-    [Nonempty ι]
-    (d : ℕ)
-    (Xinf W : ℝ)
-    (hX : 0 ≤ Xinf) (hW : 0 ≤ W)
-    (d_pos : 0 < d) (n_pos : 0 < n)
-    (Y' : Fin n → LinftyBall (d := d) Xinf)
-    (w' : ι → L1Ball (d := d) W) :
+Completeness records the Hilbert-space interpretation; separability is used
+only when the bounded weight ball is reduced to a countable dense subclass.
+-/
+
+/-- Main RKHS example using only a uniform kernel-diagonal bound. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳]
+    [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
+    [MeasurableSpace H] [BorelSpace H] [SeparableSpace H]
+    [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    (Φ : 𝒳 → H) (hΦ : Measurable Φ)
+    (Λ r : ℝ) (hΛ : 0 < Λ) (hr : 0 < r)
+    (hdiag : ∀ x, kernelOfFeatureMap Φ x x ≤ r ^ 2)
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * (r * Λ / Real.sqrt (n : ℝ)) +
+          (r * Λ) * Real.sqrt (2 * Real.log (1 / δ) / n) ≤
+        uniformDeviation n
+          (rkhsPredictor Φ :
+            Metric.closedBall (0 : H) Λ → 𝒳 → ℝ)
+          μ X (X ∘ S)}).toReal ≤ δ := by
+  exact rkhs_uniformDeviation_tail_bound_delta
+    hn Φ hΦ Λ r hΛ hr hdiag X hX hδ hδ_one
+
+/-!
+## Dudley entropy integral
+
+For
+
+$$
+D_\alpha(F,S)
+=4\alpha+\frac{12}{\sqrt n}
+  \int_\alpha^{c/2}\sqrt{\log N(F\cup(-F),x)}\,dx,
+$$
+
+the entropy route ends in the directly usable statement
+
+$$
+\Pr\!\left\{
+  \operatorname{UD}_n(F;S)
+  \ge 2D_\alpha(F,S)
+    +3b\sqrt{\frac{2\log(2/\delta)}{n}}
+\right\}\le\delta.
+$$
+
+No sample-uniform deterministic upper bound on the entropy integral is
+required in this form.
+-/
+
+/-- Main sample-dependent Dudley entropy-integral example. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty H]
+    [TopologicalSpace H] [SeparableSpace H] [FirstCountableTopology H]
+    [IsProbabilityMeasure μ]
+    (F : H → 𝒳 → ℝ) (hF_meas : ∀ h, Measurable (F h))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b c α : ℝ} (hb : 0 < b) (hF_bound : ∀ h x, |F h x| ≤ b)
+    (hF_cont : ∀ x : 𝒳, Continuous fun h ↦ F h x)
+    (hn : 0 < n) (hα : 0 < α) (hαc : α < c / 2)
+    (htb : ∀ S : Fin n → 𝒳,
+      TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
+    (hnorm : ∀ (S : Fin n → 𝒳) (h : H), empiricalNorm S (F h) ≤ c)
+    {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * dudleyEntropyEstimate F (X ∘ S) (htb (X ∘ S)) α c +
+        3 * (b * Real.sqrt (2 * Real.log (2 / δ) / n)) ≤
+          uniformDeviation n F μ X (X ∘ S)}).toReal ≤ δ := by
+  exact uniform_deviation_tail_bound_separable_of_dudley_delta
+    F hF_meas X hX hb hF_bound hF_cont hn hα hαc
+    htb hnorm hδ hδ_one
+
+/-!
+For a finite hypothesis class, taking every hypothesis as a cover center gives
+$N(F^\pm,\varepsilon)\leq2|H|$.  Choosing $\alpha=c/4$ in Dudley's estimate
+removes the covering number completely:
+
+$$
+\widehat{\mathfrak R}_n(F;S)
+\leq
+c+\frac{3c}{\sqrt n}\sqrt{\log(2|H|)}.
+$$
+
+The following high-probability example has no unevaluated entropy term.
+-/
+
+/-- Explicit finite-class Dudley generalization bound. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳]
+    [Fintype H] [Nonempty H] [IsProbabilityMeasure μ]
+    (F : H → 𝒳 → ℝ) (hF_meas : ∀ h, Measurable (F h))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b c δ : ℝ} (hb : 0 < b) (hF_bound : ∀ h x, |F h x| ≤ b)
+    (hn : 0 < n) (hc : 0 < c)
+    (hNorm : ∀ (S : Fin n → 𝒳) h, empiricalNorm S (F h) ≤ c)
+    (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 *
+          (c + (3 * c / Real.sqrt n) *
+            Real.sqrt (Real.log (2 * Fintype.card H))) +
+          3 * sampleConfidenceRadius b δ n ≤
+        uniformDeviation n F μ X (X ∘ S)}).toReal ≤ δ := by
+  exact uniform_deviation_tail_bound_finite_of_dudley_quarter_delta
+    F hF_meas X hX hb hF_bound hn hc hNorm hδ hδ_one
+
+/-!
+For a continuously parameterized family $F_t$, $t\in[-W,W]$, satisfying
+
+$$
+|F_t(x)-F_s(x)|\leq L|t-s|,
+$$
+
+an equally spaced grid gives
+
+$$
+N(F,\varepsilon)
+\leq
+\left\lceil\frac{2WL}{\varepsilon}\right\rceil+1.
+$$
+
+Freezing this estimate at the Dudley truncation scale $\alpha$ yields the
+following confidence bound, again with no unevaluated covering number.
+-/
+
+/-- Explicit Dudley generalization bound for a Lipschitz parameter family. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    {W L : ℝ} (hW : 0 ≤ W) (hL : 0 < L)
+    (F : Set.Icc (-W) W → 𝒳 → ℝ)
+    (hF_meas : ∀ t, Measurable (F t))
+    (hF_lip : ∀ t s x, |F t x - F s x| ≤ L * |t.1 - s.1|)
+    (X : Ω → 𝒳) (hX : Measurable X)
+    {b c α δ : ℝ} (hb : 0 < b) (hF_bound : ∀ t x, |F t x| ≤ b)
+    (hα : 0 < α) (hαc : α < c / 2)
+    (hNorm : ∀ (S : Fin n → 𝒳) t, empiricalNorm S (F t) ≤ c)
+    (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      2 * lipschitzParameterDudleyEstimate n W L α c +
+          3 * sampleConfidenceRadius b δ n ≤
+        uniformDeviation n F μ X (X ∘ S)}).toReal ≤ δ := by
+  exact uniform_deviation_tail_bound_lipschitzParameter_dudley_delta
+    hn hW hL F hF_meas hF_lip X hX hb hF_bound
+    hα hαc hNorm hδ hδ_one
+
+/-!
+## Approximate ERM and excess risk
+
+Let `A(S)` be an $\eta$-approximate empirical risk minimizer for a bounded
+loss class $\ell$.  The deterministic oracle inequality
+
+$$
+R(A(S))-R(h^\star)
+\leq
+2\operatorname{UD}_n(\ell;S)+\eta
+$$
+
+composes with the observed empirical Rademacher estimate to give
+
+$$
+\Pr\!\left\{
+R(A(S))-R(h^\star)
+\geq
+4C(S)+6b\sqrt{\frac{2\log(2/\delta)}{n}}+\eta
+\right\}
+\leq\delta,
+$$
+
+whenever
+$\widehat{\mathfrak R}_n(\ell;S)\leq C(S)$.
+The learning rule itself need not be measurable: the conclusion uses outer
+probability through `Measure.real`.
+-/
+
+/-- Main sample-dependent excess-risk example for an approximate ERM. -/
+example
+    [MeasurableSpace 𝒳] [Nonempty 𝒳] [Nonempty H]
+    [TopologicalSpace H] [SeparableSpace H] [FirstCountableTopology H]
+    [IsProbabilityMeasure μ]
+    (ℓ : H → 𝒳 → ℝ) (hℓ_meas : ∀ h, Measurable (ℓ h))
+    (X : Ω → 𝒳) (hX : Measurable X)
+    (C : (Fin n → 𝒳) → ℝ)
+    {b η δ : ℝ} (hb : 0 < b) (hℓ_bound : ∀ h x, |ℓ h x| ≤ b)
+    (hℓ_cont : ∀ x : 𝒳, Continuous fun h ↦ ℓ h x)
+    (A : (Fin n → 𝒳) → H)
+    (hA : ∀ S, IsApproxERM η n ℓ S (A S))
+    (hC : ∀ S, empiricalRademacherComplexity n ℓ S ≤ C S)
+    (hstar : H) (hn : 0 < n) (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      4 * C (X ∘ S) + 6 * sampleConfidenceRadius b δ n + η ≤
+        excessRisk ℓ μ X (A (X ∘ S)) hstar}).toReal ≤ δ := by
+  exact approxERM_excessRisk_tail_bound_separable_of_sample_empirical_le_delta
+    (μ := μ) hn ℓ hℓ_meas X hX C hb hℓ_bound hℓ_cont
+    A hA hC hstar hδ hδ_one
+
+/-!
+For a finite collection of weights in an RKHS ball, the finite-class
+contraction theorem also connects a centered Lipschitz loss to the kernel
+trace estimate.  If the loss vanishes at zero, then
+
+$$
+\widehat{\mathfrak R}_n(\ell\circ F;S)
+\le
+2L\,\frac{\Lambda}{n}
+\sqrt{\sum_k K(x_k,x_k)}
+$$
+
+Combining this with the approximate-ERM oracle inequality yields an excess
+risk statement.  The finiteness assumption here belongs to the currently
+proved contraction theorem; the RKHS trace estimate itself applies to the
+entire Hilbert ball.
+-/
+
+/-- RKHS, Lipschitz-loss, and approximate-ERM end-to-end example. -/
+example
+    {𝒴 G : Type*}
+    [MeasurableSpace (𝒳 × 𝒴)] [Nonempty (𝒳 × 𝒴)]
+    [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
+    [Fintype G] [Nonempty G] [TopologicalSpace G] [DiscreteTopology G]
+    [IsProbabilityMeasure μ]
+    (hn : 0 < n)
+    (Φ : 𝒳 → H)
+    (Λ r : ℝ) (hΛ : 0 < Λ) (hr : 0 < r)
+    (hdiag : ∀ x, kernelOfFeatureMap Φ x x ≤ r ^ 2)
+    (weights : G → Metric.closedBall (0 : H) Λ)
+    (loss : ℝ → 𝒴 → ℝ)
+    {L b η : ℝ} (hL : 0 ≤ L)
+    (hloss_zero : ∀ y, loss 0 y = 0)
+    (hloss_lip : ∀ y u v, |loss u y - loss v y| ≤ L * |u - v|)
+    (hclass_meas :
+      ∀ g, Measurable
+        (supervisedLossClass
+          (fun g x ↦ rkhsPredictor Φ (weights g) x) loss g))
+    (hb : 0 < b)
+    (hclass_bound :
+      ∀ g z,
+        |supervisedLossClass
+          (fun g x ↦ rkhsPredictor Φ (weights g) x) loss g z| ≤ b)
+    (Z : Ω → 𝒳 × 𝒴) (hZ : Measurable Z)
+    (A : (Fin n → 𝒳 × 𝒴) → G)
+    (hA : ∀ S,
+      IsApproxERM η n
+        (supervisedLossClass
+          (fun g x ↦ rkhsPredictor Φ (weights g) x) loss)
+        S (A S))
+    (gstar : G) {δ : ℝ} (hδ : 0 < δ) (hδ_one : δ ≤ 1) :
+    (μⁿ {S : Fin n → Ω |
+      4 *
+          (2 * L *
+            (Λ * (n : ℝ)⁻¹ *
+              Real.sqrt
+                (kernelTrace Φ (fun k ↦ (Z (S k)).1)))) +
+          6 * sampleConfidenceRadius b δ n + η ≤
+        excessRisk
+          (supervisedLossClass
+            (fun g x ↦ rkhsPredictor Φ (weights g) x) loss)
+          μ Z (A (Z ∘ S)) gstar}).toReal ≤ δ := by
+  exact finite_rkhs_approxERM_excessRisk_tail_bound_delta
+    hn Φ Λ r hΛ hr hdiag weights loss hL hloss_zero hloss_lip
+    hclass_meas hb hclass_bound Z hZ A hA gstar hδ hδ_one
+
+/-!
+For a finite hypothesis type, a centered $L$-Lipschitz loss satisfies the
+absolute-complexity contraction estimate
+
+$$
+\widehat{\mathfrak R}_n((\ell-\ell(0,\cdot))\circ F;S)
+\leq
+2L\,\widehat{\mathfrak R}_n(F;S).
+$$
+
+The factor `2` is specific to this repository's absolute-value definition.
+The corresponding one-sided theorem has factor `L`.
+-/
+
+/-- Main contraction example for a centered supervised loss. -/
+example
+    {𝒴 : Type*} [Fintype H] [Nonempty H]
+    (F : H → 𝒳 → ℝ) (loss : ℝ → 𝒴 → ℝ)
+    (S : Fin n → 𝒳 × 𝒴) {L : ℝ} (hL : 0 ≤ L)
+    (hloss : ∀ y u v, |loss u y - loss v y| ≤ L * |u - v|) :
     empiricalRademacherComplexity n
-      (fun i a => (∑ j : Fin d, (w' i).1 j * a j))
-      (Subtype.val ∘ Y') ≤
-      (Xinf * W / Real.sqrt (n : ℝ)) * Real.sqrt (2 * Real.log (2 * d)) := by
-  exact linear_predictor_l1_bound' (d := d) (n := n) (Xinf := Xinf) (W := W) hX hW d_pos n_pos Y' w'
-
-/-- Dudley entropy integral upper bound for empirical Rademacher complexity. -/
-theorem dudley_entropy_integral_bound
-  {𝒳 : Type v} {n : ℕ} {ι : Type u} [Nonempty ι] {F : ι → 𝒳 → ℝ} {S : Fin n → 𝒳} {c ε : ℝ}
-  (ε_pos : 0 < ε) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S)))
-  (m_pos : 0 < n) (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c)
-  (ε_le_c_div_2 : ε < c/2) :
-    empiricalRademacherComplexity_without_abs n F S ≤
-    (4 * ε + (12 / Real.sqrt n) *
-    (∫ (x : ℝ) in ε..(c/2),√(Real.log (coveringNumber h' x)))) := by
-  exact dudley_entropy_integral' ε_pos h' m_pos cs ε_le_c_div_2
+        (supervisedLossClass F (centeredLoss loss)) S ≤
+      2 * L *
+        empiricalRademacherComplexity n
+          (fun (h : H) (z : 𝒳 × 𝒴) ↦ F h z.1) S := by
+  exact empiricalRademacherComplexity_centered_supervisedLossClass_le
+    n F loss S hL hloss
 
 end
