@@ -1,11 +1,11 @@
 # `lean-rademacher` の実装概要
 
 - 最終確認日: 2026-07-24
-- 基準ブランチ: `ss`（Phase 10 完了時点）
+- 基準ブランチ: `ss`（公開 API と依存関係の優先度 A リファクタリング完了時点）
 
 ## 0. 対象と現在の到達点
 
-この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。抽象的な汎化定理は [`FoML/Generalization/Countable.lean`](../FoML/Generalization/Countable.lean)、[`FoML/Generalization/Separable.lean`](../FoML/Generalization/Separable.lean)、[`FoML/Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) に分割されている。[`FoML/Main.lean`](../FoML/Main.lean) は主要な利用例を繰り返す入口、[`FoML.lean`](../FoML.lean) はライブラリ全体の入口である。
+この文書は、統計的学習理論における Rademacher 複雑度と汎化評価を Lean 4 で形式化する `lean-rademacher` リポジトリの現行実装を整理したものである。抽象的な汎化定理は [`FoML/Generalization/Countable.lean`](../FoML/Generalization/Countable.lean)、[`FoML/Generalization/Separable.lean`](../FoML/Generalization/Separable.lean)、[`FoML/Generalization/Confidence.lean`](../FoML/Generalization/Confidence.lean) に分割されている。[`FoML.lean`](../FoML.lean) は公開ライブラリ API を直接集約する入口であり、[`FoML/Main.lean`](../FoML/Main.lean) は `FoML` を import して主要な利用例を繰り返す例示モジュールである。
 
 現在の実装は、次の九つの経路を一つの公開 API として接続している。
 
@@ -41,8 +41,12 @@
   二種類の信頼度形式まで接続している。
 - 有限個の RKHS 重みについては、定数 $2L$ の絶対値付き contraction と
   近似 ERM oracle inequality を合成した余剰誤差 E2E 評価がある。
+- $\ell_2$ 線形予測器の固定標本評価は一般 Hilbert 空間の定理へ一本化され、
+  有限次元で符号和を再展開していた旧証明は削除されている。任意の添字型で
+  与えた部分クラスは reindex の単調性により full class の評価へ接続する。
 
-概念上の依存関係は次のようにまとめられる。
+概念上の依存関係は次のようにまとめられる。矢印は、下位の依存先から
+それを利用する上位モジュールへ向けて描いている。
 
 ```mermaid
 flowchart LR
@@ -79,10 +83,12 @@ flowchart LR
     erm["Learning/<br/>ERM"]
     contraction["Learning/<br/>Contraction"]
     learningGen["Generalization/<br/>Learning"]
+    api["FoML.lean<br/>公開 API"]
     main["Main"]
 
     defs --> symm
     defs --> rademacherProperty
+    symm --> rademacherProperty
     rademacherProperty --> rademacher
     symm --> rademacher
     rademacher --> boundedDiff
@@ -123,21 +129,23 @@ flowchart LR
     rademacherProperty --> contraction
     learningDefs --> contraction
     erm --> learningGen
-    contraction --> learningGen
     confidence --> learningGen
-    rkhsGen --> rkhsLearning
+    contraction --> rkhsLearning
+    rkhs --> rkhsLearning
     learningGen --> rkhsLearning
     reindex --> rkhsLearning
 
-    l2Gen --> main
-    l1Gen --> main
-    rkhsGen --> main
-    rkhsLearning --> main
-    dudleyGen --> main
-    finiteGen --> main
-    lipschitzGen --> main
-    learningGen --> main
-    reindex --> main
+    l2Gen --> api
+    l1Gen --> api
+    rkhsGen --> api
+    rkhsLearning --> api
+    dudleyGen --> api
+    finiteGen --> api
+    lipschitzGen --> api
+    learningGen --> api
+    contraction --> api
+    reindex --> api
+    api --> main
 ```
 
 ソースファイルは依存層ごとに次のディレクトリへ分けている。
@@ -155,8 +163,11 @@ FoML/
 └── ForMathlib/       # 統計的学習理論に依存しない補助補題
 ```
 
-直下に残す Lean ファイルは中心定義の `Defs.lean` と公開例の `Main.lean`
-だけである。ライブラリ全体の入口は従来通りリポジトリ直下の `FoML.lean` である。
+`FoML/` 直下に残す Lean ファイルは中心定義の `Defs.lean` と公開例の
+`Main.lean` だけである。リポジトリ直下の `FoML.lean` は `Main.lean` に
+依存せず、各 `Generalization` 応用、contraction、reindex からなる公開
+ライブラリ API を直接 import する。逆に `Main.lean` が `FoML` を import
+するため、ライブラリ本体と例示コードの依存方向は分離されている。
 
 ## 1. 共通の設定と中心定義
 
@@ -918,11 +929,19 @@ $$
 
 を示す。公開定理は
 [`FoML/Model/HilbertPredictor.lean`](../FoML/Model/HilbertPredictor.lean) の
-次元に依存しない定理の有限次元系として実装されている。一般 Hilbert 空間で
-符号付き和のノルム二乗を展開し、`rademacher_orthogonality` で非対角交差項を
-消去し、Cauchy--Schwarz で符号平均を二乗平均により評価する。
+次元に依存しない定理の有限次元系として実装されている。符号付き和の
+ノルム二乗の展開、`rademacher_orthogonality` による非対角交差項の消去、
+Cauchy--Schwarz による符号平均の評価は一般 Hilbert 空間側で一度だけ行う。
+`Model/LinearPredictorL2.lean` に以前残っていた有限次元での重複証明と、
+それに必要だった `Rademacher.Symmetrization`、`Rademacher.Signs` の直接
+import は削除されている。
 
-`linear_predictor_l2_bound` は、任意の添字型から閉球内の重みを与える旧来の固定標本 wrapper である。関数クラス全体を後続の接続定理へ使う場合は `linear_predictor_l2_empirical_bound` が直接対応する。
+`linear_predictor_l2_bound` は、任意の添字型から閉球内の重みを与える
+固定標本 wrapper である。これは、与えられた重み族を full class へ写す
+reindex として表し、
+`empiricalRademacherComplexity_reindex_le` による単調性の後で
+`linear_predictor_l2_empirical_bound` を適用する。したがって部分クラスの
+評価にも有限次元専用の Rademacher 計算を重複させない。
 
 ### 5.3 期待量と高確率汎化評価
 
@@ -1614,7 +1633,27 @@ noncomputable def lipschitzParameterDudleyEstimate
 
 ## 8. 公開 API とモジュール配置
 
-`FoML/Main.lean` は以下の API を import した上で、汎用 bridge、二種類の線形予測器、Dudley entropy integral の主要な使い方を `example` として繰り返す。抽象定理と個別応用の実装は `Generalization/`、固定標本上の個別モデルは `Model/`、Dudley の固定標本評価は `Entropy/` に置かれている。
+リポジトリ直下の `FoML.lean` は、以下の公開 API を提供する最上位モジュールを
+直接 import する。`FoML/Main.lean` は個々の応用モジュールへ直接依存せず
+`import FoML` とした上で、汎用 bridge、二種類の線形予測器、RKHS、Dudley
+entropy integral、ERM と余剰誤差の主要な使い方を `example` として繰り返す。
+抽象定理と個別応用の実装は `Generalization/`、固定標本上の個別モデルは
+`Model/`、Dudley の固定標本評価は `Entropy/` に置かれている。
+
+`FoML.lean` が直接集約するモジュールは次である。
+
+```lean
+import FoML.Generalization.LinearPredictorL2
+import FoML.Generalization.LinearPredictorL1
+import FoML.Generalization.RKHS
+import FoML.Generalization.Dudley
+import FoML.Generalization.FiniteClass
+import FoML.Generalization.LipschitzParameter
+import FoML.Generalization.Learning
+import FoML.Generalization.RKHSLearning
+import FoML.Learning.Contraction
+import FoML.Rademacher.Reindex
+```
 
 ### 8.1 抽象的な汎化定理
 
@@ -1996,10 +2035,38 @@ $$
 
 となる。値域幅を直接仮定する片側版などを追加すれば定数を改善できる可能性はあるが、現在の公開定理は既存の絶対値付き定義と一様有界性の API に揃えている。
 
+### 9.9 モジュール依存関係
+
+公開 API と例示コードの依存は
+
+```mermaid
+flowchart LR
+    library["Generalization / Learning / Rademacher の公開モジュール"]
+    api["FoML.lean"]
+    examples["FoML/Main.lean"]
+
+    library --> api --> examples
+```
+
+に整理されている。`FoML.lean` は `Main.lean` を import しないので、
+`import FoML` だけで例示用の `example` をライブラリ依存へ混入させない。
+
+また、`Generalization/Learning.lean` は ERM oracle inequality と汎化評価の
+合成だけを扱い、有限型 contraction を import しない。contraction を実際に
+使う `Generalization/RKHSLearning.lean` が `Learning/Contraction.lean` を
+直接 import する。同ファイルは汎化済み RKHS 定理ではなく固定標本評価を使う
+ため、`Generalization/RKHS.lean` ではなく `Model/RKHS.lean` に直接依存する。
+
+今後の依存整理としては、現在
+`Rademacher/Signs.lean` が `Rademacher/Symmetrization.lean` を import する一方、
+`Signs.card` などの基本符号補題が `Symmetrization.lean` に置かれている点が
+残る。符号の基本 API と確率論的 symmetrization を分離するのが次の候補である。
+
 ## 10. ファイルごとの役割
 
 | ファイル | 主な役割 |
 |---|---|
+| [`FoML.lean`](../FoML.lean) | 公開ライブラリ API の import 集約。`Main.lean` には依存しない。 |
 | [`Defs.lean`](../FoML/Defs.lean) | 符号、二種類の経験 Rademacher 複雑度、期待 Rademacher 複雑度、一様偏差。 |
 | [`Probability/MeasurePi.lean`](../FoML/Probability/MeasurePi.lean) | 積測度の座標分布と独立性。 |
 | [`Probability/Expectation.lean`](../FoML/Probability/Expectation.lean) | 一様上界から期待値上界を得る補助定理。 |
@@ -2042,7 +2109,7 @@ $$
 | [`Learning/ERM.lean`](../FoML/Learning/ERM.lean) | 点ごとの偏差および一様偏差から得る決定論的 ERM oracle inequality。 |
 | [`Learning/Contraction.lean`](../FoML/Learning/Contraction.lean) | 有限仮説型の片側・絶対値付き Lipschitz contraction と中心化損失版。 |
 | [`Generalization/Learning.lean`](../FoML/Generalization/Learning.lean) | 近似 ERM の余剰誤差に対する期待・経験 Rademacher 高確率評価。 |
-| [`Main.lean`](../FoML/Main.lean) | 数式入り docstring と `example` による汎用 bridge、線形・RKHS 予測器、Dudley、ERM・余剰誤差の主要な利用例。 |
+| [`Main.lean`](../FoML/Main.lean) | `FoML` を import し、数式入り docstring と `example` により汎用 bridge、線形・RKHS 予測器、Dudley、ERM・余剰誤差の主要な利用例を再提示する。 |
 
 旧実装と重複していた `FoML/WIP/RademacherProperty.lean` は削除した。現行の公開経路では [`FoML/Rademacher/Signs.lean`](../FoML/Rademacher/Signs.lean) を参照する。
 また、`ForMathlib/Topology/SeparableSpace.lean` を import するだけだった旧
@@ -2054,21 +2121,29 @@ $$
 符号対称化の全有界性と三つの最終 entropy 定理に絞り、一般の Riemann 和補題は
 `ForMathlib` へ移した。
 
+さらに、`Model/LinearPredictorL2.lean` から一般 Hilbert 空間の証明と重複して
+いた有限次元の符号和展開を削除した。任意の重み族に対する
+`Generalization/LinearPredictorL2.lean` の wrapper は reindex の単調性と
+full-class 評価の合成に置き換えた。
+
 `.gitattributes` は Lean、Markdown、TOML、JSON に `eol=lf` を指定する。既存の
 CRLF または混在改行も LF へ正規化済みである。
 
 ## 11. 検証状態
 
-2026-07-24 時点で、Phase 10 の RKHS 評価まで含む全体
-`lake build` は成功している。`FoML` 直下は `Defs.lean` と `Main.lean` の
-二つである。
-`import FoML.Main` から、
+2026-07-24 時点で、RKHS、Dudley、ERM・余剰誤差の評価と、公開 API の
+依存関係リファクタリングまで含む `lake build` は成功している。依存反転後の
+例示モジュールについても `lake build FoML.Main` が成功している。
+`FoML/` 直下は `Defs.lean` と `Main.lean` の二つである。
+
+公開ライブラリの利用者は `import FoML` から、
 `MeasureTheory` 名前空間の測度 bridge、信頼半径、新しい汎化 bridge、
 `denseRestriction`、reindex API、両線形クラスの E2E 評価、
 RKHS の kernel trace 版・一様対角上界版 E2E 評価、
 `dudleyEntropyEstimate`、Dudley の信頼度形式、有限クラスおよび一次元
 Lipschitz パラメータ族の被覆数を含まない Dudley E2E 評価、
 ERM oracle inequality、余剰誤差 tail、有限クラス contraction、
-有限 RKHS モデルの Lipschitz loss 余剰誤差 E2E を参照できる。`FoML` 以下に
-`sorry` または `admit` はない。文書中の高確率評価はすべて悪い事象の確率に
-対する上界として記している。
+有限 RKHS モデルの Lipschitz loss 余剰誤差 E2E を参照できる。
+`import FoML.Main` はこれらに加えて主要な `example` を参照する入口である。
+`FoML` 以下に `sorry` または `admit` はない。文書中の高確率評価はすべて
+悪い事象の確率に対する上界として記している。
