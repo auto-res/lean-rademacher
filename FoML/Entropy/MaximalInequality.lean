@@ -4,7 +4,6 @@ import Mathlib.Probability.Independence.Basic
 import Mathlib.Analysis.Convex.Integral
 import Mathlib.Probability.Independence.Integration
 import FoML.Probability.Hoeffding
-import FoML.Defs
 
 open MeasureTheory ProbabilityTheory Real
 

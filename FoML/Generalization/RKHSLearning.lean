@@ -1,5 +1,6 @@
 import FoML.Generalization.Learning
-import FoML.Generalization.RKHS
+import FoML.Learning.Contraction
+import FoML.Model.RKHS
 import FoML.Rademacher.Reindex
 
 /-!

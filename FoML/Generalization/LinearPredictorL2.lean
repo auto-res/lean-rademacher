@@ -1,5 +1,6 @@
 import FoML.Generalization.Confidence
 import FoML.Model.LinearPredictorL2
+import FoML.Rademacher.Reindex
 
 /-!
 # Generalization bounds for `ℓ₂` linear predictors
@@ -36,8 +37,22 @@ theorem linear_predictor_l2_bound
     empiricalRademacherComplexity
       n (fun i x ↦ ⟪((Subtype.val ∘ w) i), x⟫) (Subtype.val ∘ S) ≤
         X * W / √(n : ℝ) := by
-  exact linear_predictor_l2_bound'
-    (d := d) (n := n) (W := W) (X := X) hX hW S w
+  letI : Nonempty (Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W) :=
+    (Metric.nonempty_closedBall.mpr hW).to_subtype
+  calc
+    empiricalRademacherComplexity
+        n (fun i x ↦ ⟪((Subtype.val ∘ w) i), x⟫) (Subtype.val ∘ S) =
+      empiricalRademacherComplexity n
+        (fun i x ↦ linearPredictorL2 (w i) x) S := rfl
+    _ ≤ empiricalRademacherComplexity n
+        (linearPredictorL2 :
+          Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) W →
+            Metric.closedBall (0 : EuclideanSpace ℝ (Fin d)) X → ℝ) S := by
+      exact empiricalRademacherComplexity_reindex_le
+        linearPredictorL2 w S (mul_nonneg hX hW)
+          (fun w x ↦ abs_linearPredictorL2_le hW w x)
+    _ ≤ X * W / √(n : ℝ) :=
+      linear_predictor_l2_empirical_bound d n W X hX hW S
 
 /--
 Expected Rademacher-complexity bound for the full `ℓ₂`-bounded linear class:

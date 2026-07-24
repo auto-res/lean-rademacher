@@ -1,5 +1,4 @@
 import FoML.Learning.ERM
-import FoML.Learning.Contraction
 import FoML.Generalization.Confidence
 
 /-!
