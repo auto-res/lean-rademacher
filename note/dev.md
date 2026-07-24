@@ -40,3 +40,12 @@ Main.lean には，UD を Rademacher で押さえる基本定理も掲載して�
 - RKHS の場合（Mohri, Theorem 6.12）を実装したいです．
 - 被複数を具体化してDudleyを評価する例がほしいです．
 - 損失関数、ERM、余剰誤差まで含む評価を実装したいです．
+
+---
+
+- ss branch から main branch へ merge するためのスクリプト ./script/merge-ss2main.sh を書いてください．全てをマージするのではなく，以下のファイルは含めないでください
+  - AGENTS.md
+  - note/ 配下
+  - data/ 配下
+
+- readme.md を更新してください．特に contents は selected とし， mermaid で依存関係を描いてください．
