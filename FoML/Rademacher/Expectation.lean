@@ -106,12 +106,12 @@ lemma symmetrization_signed_sup_le_add
             rw [← hi]
             apply abs_signed_sum_le_card_mul_bound hf'
         intro i
-        convert abs_sub _ _
-        rw [←Finset.sum_sub_distrib]
-        congr
-        ext k
-        exact mul_sub_left_distrib ((σ k : ℝ)) (f i (X (ω k).1)) (f i (X (ω k).2))
-        exact instIsOrderedAddMonoid
+        have hsplit : ∑ k : Fin n, (σ k : ℝ) * (f i (X (ω k).1) - f i (X (ω k).2))
+            = ∑ k : Fin n, (σ k : ℝ) * f i (X (ω k).1)
+              - ∑ k : Fin n, (σ k : ℝ) * f i (X (ω k).2) := by
+          rw [←Finset.sum_sub_distrib]
+          exact Finset.sum_congr rfl fun k _ ↦ mul_sub_left_distrib _ _ _
+        exact (congrArg abs hsplit).trans_le (abs_sub _ _)
        _ ≤ _ := by
         apply ciSup_add_le_add_ciSup
         · apply bddAbove_range_abs_signed_sum hf'
@@ -411,7 +411,7 @@ theorem measurable_empiricalRademacherComplexity_comp
   apply Finset.univ.measurable_sum
   intro k _
   apply measurable_const.mul
-  simpa only [Function.comp_apply] using (hf i).comp (measurable_pi_apply k)
+  exact (hf i).comp (measurable_pi_apply k)
 
 /-- Integrability of empirical Rademacher complexity for a measurable uniformly bounded class. -/
 theorem integrable_empiricalRademacherComplexity_comp
@@ -1041,12 +1041,12 @@ theorem integral_sum_sub_eq_sum_sub_integral {X : Ω → Z} (hf : ∀ i, Measura
     _ = (∫ (ω' : Fin n → Ω), ∑ k : Fin n, f i (X (ω k)) ∂μⁿ) - (∫ (ω' : Fin n → Ω), ∑ k : Fin n, f i (X (ω' k)) ∂μⁿ) := by
       apply integral_sub
       · simp
-      · apply integrable_finset_sum
+      · apply integrable_finsetSum
         exact fun i_1 a ↦ integrable_eval_comp hf hf' i i_1
     _ = (∑ k : Fin n, f i (X (ω k)) - ∫ (ω' : Fin n → Ω), ∑ k : Fin n, f i (X (ω' k)) ∂μⁿ) := by simp
     _ = (∑ k : Fin n, f i (X (ω k)) - ∑ k : Fin n, ∫ (ω' : Fin n → Ω), f i (X (ω' k)) ∂μⁿ) := by
       simp only [sub_right_inj]
-      exact integral_finset_sum Finset.univ (fun i_1 a ↦ integrable_eval_comp hf hf' i i_1)
+      exact integral_finsetSum Finset.univ (fun i_1 a ↦ integrable_eval_comp hf hf' i i_1)
     _ = ∑ k : Fin n, (f i (X (ω k)) - ∫ (ω' : Fin n → Ω), f i (X (ω' k)) ∂μⁿ) := by
       exact Eq.symm (Finset.sum_sub_distrib (fun x ↦ f i (X (ω x))) fun x ↦
           ∫ (ω' : (Fin n → Ω)), f i (X (ω' x)) ∂Measure.pi fun x ↦ μ)
@@ -1171,11 +1171,11 @@ theorem bddAbove_range_integral_abs_sum_sub {X : Ω → Z} [Nonempty ι] [Counta
   have hq0 : ∀ (ω x: Fin n → Ω) (k : Fin n), BddAbove (Set.range fun i ↦ (f i (X (ω k)) - f i (X (x k)))) :=
   fun ω' x k => BddAbove.range_add (hq ω' k) (BddBelow.range_neg (hq' x k))
   have hq1 : ∀ (ω x: Fin n → Ω), BddAbove (Set.range fun i ↦ ∑ k : Fin n, (f i (X (ω k)) - f i (X (x k)))) :=
-    fun ω' x => BddAbove.range_comp (bddAbove_range_pi.mpr (hq0 ω' x)) fun f g hfg => Finset.sum_le_sum fun i a ↦ hfg i
+    fun ω' x => BddAbove.range_comp_left (bddAbove_range_pi.mpr (hq0 ω' x)) fun f g hfg => Finset.sum_le_sum fun i a ↦ hfg i
   have hq2 : ∀ (ω x: Fin n → Ω) (k : Fin n), BddBelow (Set.range fun i ↦ (f i (X (ω k)) - f i (X (x k)))) :=
     fun ω' x k => BddBelow.range_add (hq' ω' k) (BddAbove.range_neg (hq x k))
   have hq3 : ∀ (ω x: Fin n → Ω), BddBelow (Set.range fun i ↦ ∑ k : Fin n, (f i (X (ω k)) - f i (X (x k)))) :=
-    fun ω' x => BddBelow.range_comp (bddBelow_range_pi.mpr (hq2 ω' x)) (fun f g hfg => Finset.sum_le_sum fun i a ↦ hfg i)
+    fun ω' x => BddBelow.range_comp_left (bddBelow_range_pi.mpr (hq2 ω' x)) (fun f g hfg => Finset.sum_le_sum fun i a ↦ hfg i)
   have hq1 : ∀ (ω x: Fin n → Ω), BddAbove (Set.range fun i ↦ |∑ k : Fin n, (f i (X (ω k)) - f i (X (x k)))|) := by
     intro ω x
     obtain hq1'' := hq1 ω x

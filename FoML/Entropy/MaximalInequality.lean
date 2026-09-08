@@ -117,16 +117,16 @@ private theorem integrable_exp_of_subgaussian
 
 private lemma enorm_mono (a b : ℝ) (p : a ≤ b) (q : 0 ≤ a):
     ‖a‖ₑ ≤ ‖b‖ₑ := by
-  rw [<- ofReal_norm_eq_enorm]
-  rw [<- ofReal_norm_eq_enorm]
+  rw [<- ofReal_norm]
+  rw [<- ofReal_norm]
   rw [ENNReal.ofReal_le_ofReal_iff]
   simp only [norm_eq_abs]
   exact abs_le_abs_of_nonneg q p
   exact norm_nonneg b
 
 private lemma enorm_nonneg (a : ℝ) : 0 ≤ ‖a‖ₑ := by
-  rw [<- ofReal_norm_eq_enorm]
-  exact zero_le (ENNReal.ofReal ‖a‖)
+  rw [<- ofReal_norm]
+  exact zero_le
 
 omit [IsProbabilityMeasure μ] [DecidableEq ι] in
 private theorem Finset.aemeasurable_sup' {s : Finset ι} (hs : s.Nonempty) {f : ι → Ω → ℝ}
@@ -138,7 +138,7 @@ private theorem Finset.aemeasurable_sup' {s : Finset ι} (hs : s.Nonempty) {f : 
   intro r
   intro a_2
   intro r0
-  exact AEMeasurable.sup' r r0
+  exact AEMeasurable.sup r r0
   exact hf
 
 omit [IsProbabilityMeasure μ] [DecidableEq ι] in
@@ -161,7 +161,6 @@ lemma maximal_inequality_finset (n : ℕ) (s : Finset ι) (n_car : s.card = n) (
     ∫ (ω : Ω), Finset.sup' s H (fun j => (X j) ω) ∂μ ≤ r * Real.sqrt (2 * Real.log n) := by
   have l'' : AEStronglyMeasurable (fun ω ↦ s.sup' H fun j ↦ X j ω) μ := by
     apply AEMeasurable.aestronglyMeasurable
-    change AEMeasurable (fun ω ↦ s.sup' H fun j ↦ X j ω) μ
     apply aemeasurable_sup_pointwise
     exact q7
   have q : ∀ j ∈ s, Integrable (X j) μ := fun j hj ↦ integrable_of_subgaussian μ X j r (p j hj) (q7 j hj)
@@ -246,7 +245,7 @@ lemma maximal_inequality_finset (n : ℕ) (s : Finset ι) (n_car : s.card = n) (
             simp only [zero_le, *]
             exact hj
           _ = ∑ j ∈ s, ∫⁻ (a : Ω), ‖X j a‖ₑ ∂μ := by
-            refine lintegral_finset_sum' s ?_
+            refine lintegral_finsetSum' s ?_
             intro b bs
             exact AEMeasurable.enorm (q7 b bs)
           _ < ⊤ := by
@@ -262,7 +261,7 @@ lemma maximal_inequality_finset (n : ℕ) (s : Finset ι) (n_car : s.card = n) (
               f, g]
             apply Continuous.comp'
             · apply Real.continuous_exp
-            · apply continuous_mul_left
+            · apply continuous_const_mul
           · exact l''
         · dsimp [HasFiniteIntegral]
           dsimp [g, f]
@@ -294,7 +293,7 @@ lemma maximal_inequality_finset (n : ℕ) (s : Finset ι) (n_car : s.card = n) (
                 exact v0
               exact Finset.sup'_le H (fun j ↦ ‖rexp (t * X j i)‖ₑ) v
             _ = ∑ j ∈ s, ∫⁻ (a : Ω), ‖rexp (t * X j a)‖ₑ ∂μ := by
-              refine lintegral_finset_sum' s ?_
+              refine lintegral_finsetSum' s ?_
               intro b bs
               subst n_car
               simp_all only [Nat.ofNat_nonneg, sqrt_mul, div_pos_iff_of_pos_right, sqrt_pos, Nat.ofNat_pos, mul_pos_iff_of_pos_left,f]
@@ -369,14 +368,14 @@ lemma maximal_inequality_finset (n : ℕ) (s : Finset ι) (n_car : s.card = n) (
         constructor
         exact H'
         exact exp_nonneg (t * X x a)
-      · refine integrable_finset_sum s ?hgi.hf
+      · refine integrable_finsetSum s ?hgi.hf
         intro i hi
         exact ProbabilityTheory.integrable_exp_of_subgaussian μ X i r (p i hi) t (q7 i hi)
       · filter_upwards
         intro a
         exact w a
     _ = (∑ j ∈ s, ∫ (ω : Ω), Real.exp (t * (X j) ω) ∂μ) := by
-      refine integral_finset_sum s ?_
+      refine integral_finsetSum s ?_
       intro i hi
       exact ProbabilityTheory.integrable_exp_of_subgaussian μ X i r (p i hi) t (q7 i hi)
     _ ≤ (∑ j ∈ s, Real.exp (t ^ 2 * r ^ 2 / 2)) := by
@@ -623,7 +622,7 @@ lemma maximal_inequality_supR'
         refine Measurable.ennreal_ofReal ?_
         refine Continuous.borel_measurable ?_
         refine Continuous.rexp ?_
-        exact continuous_mul_left t
+        exact continuous_const_mul t
       · intro i
         subst n_car
         simp_all only [gt_iff_lt, Finset.sum_apply]
@@ -843,7 +842,7 @@ lemma maximal_inequality_supR
         . apply MeasureTheory.HasFiniteIntegral.of_bounded
           filter_upwards with ω
           exact abs_le.mpr ⟨y_neg i hi j (by grind) ω, y_pos i hi j (by grind) ω⟩
-      convert MeasureTheory.integral_finset_sum s q
+      convert MeasureTheory.integral_finsetSum s q
       simp
     _ = ∑ i ∈ s, 0 := by
       apply Finset.sum_congr rfl

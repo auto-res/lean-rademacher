@@ -124,10 +124,8 @@ theorem finite_rkhs_approxERM_excessRisk_tail_bound_delta
               rkhsPredictor Φ w z.1) S ≤
           Λ * (n : ℝ)⁻¹ *
             Real.sqrt (kernelTrace Φ (fun k ↦ (S k).1)) := by
-      simpa [rkhsPredictor, Function.comp_def, kernelTrace,
-        kernelOfFeatureMap] using
-        (rkhs_empiricalRademacherComplexity_le_kernelTrace
-          (Φ := fun z : 𝒳 × 𝒴 ↦ Φ z.1) Λ hΛ.le S)
+      exact rkhs_empiricalRademacherComplexity_le_kernelTrace
+        (Φ := fun z : 𝒳 × 𝒴 ↦ Φ z.1) Λ hΛ.le S
     calc
       empiricalRademacherComplexity n lossClass S ≤
           2 * L *

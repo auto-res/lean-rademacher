@@ -341,7 +341,7 @@ theorem cgf_deriv_two [IsFiniteMeasure μ] [NeZero μ] (a b : ℝ)
   apply HasDerivAt.div
   · set c := max ‖a‖ ‖b‖
     apply tilt_second_deriv _ _ _ hX h
-    apply MeasureTheory.Integrable.bdd_mul
+    apply MeasureTheory.Integrable.bdd_mul (c := rexp (|t| * |c|))
     · rw [(by ext ω; ring : (fun ω ↦ X ω ^ 2) = (fun ω ↦ X ω * X ω))]
       apply MeasureTheory.Integrable.bdd_mul
         (integrable_bounded a b hX h) (aestronglyMeasurable_iff_aemeasurable.mpr hX)
@@ -352,7 +352,6 @@ theorem cgf_deriv_two [IsFiniteMeasure μ] [NeZero μ] (a b : ℝ)
     · exact aemeasurable_expt t hX
     · simp only [norm_eq_abs, abs_exp]
       filter_upwards [h] with ω h
-      change rexp (t * X ω) ≤ rexp (|t| * |c|)
       simp only [exp_le_exp]
       calc
       _ ≤ |t * X ω| := le_abs_self (t * X ω)

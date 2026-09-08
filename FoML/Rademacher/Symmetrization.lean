@@ -27,7 +27,8 @@ variable {n : ℕ}
 
 @[simp]
 theorem Signs.card (n : ℕ) : Fintype.card (Signs n) = 2^n := by
-  simp [Signs]
+  change Fintype.card (Fin n → ({-1,1} : Finset ℤ)) = 2^n
+  simp
 
 @[simp]
 theorem Signs.apply_abs (σ : Signs n) (k : Fin n) : (|σ k| : ℤ) = 1 := by
@@ -118,11 +119,7 @@ lemma sigma_eq (f : ℤ → (Signs n) → ℝ) :
       exact Eq.symm (Fintype.sum_prod_type _)
     _ = ∑ σ : Signs (n + 1), (fun σ' ↦ f σ'.1 σ'.2) ((Fin.snocEquiv (fun _ ↦ ({-1,1} : Finset ℤ))).symm σ) := by
       dsimp only [Signs]
-      exact Eq.symm
-        (Fintype.sum_equiv (Fin.snocEquiv fun x ↦ { x // x ∈ {-1, 1} }).symm
-          (fun x ↦
-            (fun σ' ↦ f (↑σ'.1) σ'.2) ((Fin.snocEquiv fun x ↦ { x // x ∈ {-1, 1} }).symm x))
-          (fun x ↦ f (↑x.1) x.2) (congrFun rfl))
+      exact (Fintype.sum_equiv (Fin.snocEquiv fun _ ↦ ({-1,1} : Finset ℤ)).symm _ _ fun _ ↦ rfl).symm
     _ = _ := by simp
 
 omit [MeasurableSpace Ω] in
@@ -632,6 +629,7 @@ lemma aux₃ [Countable ι] [Nonempty ι] (h𝓕 : ∀ I : ι, Measurable (f I �
             congr
             simp only [not_lt] at h
             exact Fin.last_le_iff.mp h
+        dsimp only [Fin.snocEquiv, Equiv.coe_fn_mk]
         rw [this, Fin.sum_snoc, add_assoc]
       _ = (((μ.prod μ).prod μ2n).map (Fin.snocEquiv fun _ ↦ (Ω × Ω)))[(fun ω : Fin (n+1) → Ω × Ω
         ↦ 2⁻¹ ^ (n+1) * ∑ σ : Signs (n + 1), (⨆ I : ι, ∑ i : Fin (n+1), σ i * (f I (X (ω i).1) - f I (X (ω i).2)) + c I))] := by
@@ -749,7 +747,6 @@ theorem abs_symmetrization_equation [Countable ι] [Nonempty ι] (h𝓕 : ∀ I 
       dsimp
       congr
       ext σ
-      dsimp
       let V : (Z → ℝ ) → ℝ := fun f ↦ ∑ i, (σ i) * (f (X (ω i).1) - f (X (ω i).2))
       have hV₀: ∀ f, V (-f) = - (V f) := by
         intro f
