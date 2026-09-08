@@ -72,10 +72,8 @@ theorem linear_predictor_l2_empirical_bound_of_sample
         Real.sqrt
           (∑ k : Fin n, ‖(S k : EuclideanSpace ℝ (Fin d))‖ ^ 2)
   rw [empiricalRademacherComplexity_comp]
-  simpa only [Function.comp_apply] using
-    (hilbertPredictor_empiricalRademacherComplexity_le
-      (H := EuclideanSpace ℝ (Fin d))
-      W hW (Subtype.val ∘ S))
+  exact hilbertPredictor_empiricalRademacherComplexity_le
+    (H := EuclideanSpace ℝ (Fin d)) W hW (Subtype.val ∘ S)
 
 /--
 Empirical Rademacher-complexity bound for the full class of `ℓ₂`-bounded

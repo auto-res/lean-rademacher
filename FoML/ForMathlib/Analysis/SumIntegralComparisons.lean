@@ -102,9 +102,6 @@ theorem AntitoneOn.leftRiemann_sum_le_integral
       refine hcomp.symm.trans ?_
       refine Finset.sum_congr rfl ?_
       intro j _
-      change
-        (f (e j) - f (e j + 1)) * g (f (e j)) =
-          (h (j + 1) - h j) * g (h (j + 1))
       dsimp [e, h]
       have hj : (j : ℕ) ≤ n - 1 := Nat.le_pred_of_lt j.is_lt
       simp [Nat.sub_sub, Nat.add_comm]

@@ -74,19 +74,18 @@ theorem cgf_le_quadratic_of_nonneg [IsProbabilityMeasure μ] (t a b : ℝ) {X : 
       apply HasDerivAt.add
       · rw [← (by ring : 0 - f' x + (f' x - f'' x * (t - x)) = - f'' x * (t - x))]
         apply ((hasDerivAt_const x _).sub (cgf_deriv_one a b hX h x)).add
-        convert (cgf_deriv_two a b hX h x).mul ((hasDerivAt_id' x).add_const (-t)) using 1
-        · ext; simp; grind only
-        · dsimp [f', f'']
-          have p : variance X (Measure.tilted μ fun ω ↦ x * X ω) =
-              (μ.tilted fun ω ↦ x * X ω)[X ^ 2] - ((μ.tilted fun ω ↦ x * X ω)[X]) ^ 2 := by
-            have _ : IsProbabilityMeasure (μ.tilted fun ω ↦ x * X ω) :=
-              isProbabilityMeasure_tilted (integrable_expt_bound hX h)
-            have hμ := tilted_absolutelyContinuous μ fun ω ↦ x * X ω
-            apply variance_eq_sub <|
-              MeasureTheory.memLp_of_bounded (hμ h) (AEMeasurable.aestronglyMeasurable (hX.mono_ac hμ)) 2
+        have p : f'' x =
+            (μ.tilted fun ω ↦ x * X ω)[X ^ 2] - ((μ.tilted fun ω ↦ x * X ω)[X]) ^ 2 := by
+          have _ : IsProbabilityMeasure (μ.tilted fun ω ↦ x * X ω) :=
+            isProbabilityMeasure_tilted (integrable_expt_bound hX h)
+          have hμ := tilted_absolutelyContinuous μ fun ω ↦ x * X ω
+          apply variance_eq_sub <|
+            MeasureTheory.memLp_of_bounded (hμ h) (AEMeasurable.aestronglyMeasurable (hX.mono_ac hμ)) 2
+        have h1 : HasDerivAt f' (f'' x) x := by
           rw [p]
-          simp only [Pi.pow_apply, mul_one]
-          ring
+          exact cgf_deriv_two a b hX h x
+        have h2 : HasDerivAt (fun y ↦ t - y) (-1) x := (hasDerivAt_id' x).const_sub t
+        exact (h1.mul h2).neg.congr_deriv (by ring)
       · rw [(by ext x; ring : (fun x ↦ -(A * (t - x) ^ 2 / 2)) =
           (fun x ↦ -A * ((x - t) ^ 2 / 2))),
             (by ring : (A * (t - x)) = -A * (x - t))]
@@ -178,7 +177,7 @@ theorem hoeffding [IsProbabilityMeasure μ] (t a b : ℝ) {X : Ω → ℝ} (hX :
       simp only [mul_neg, neg_mul, neg_neg, even_two, Even.neg_pow, sub_neg_eq_add] at this
       rw [<- (by ring : (-a + b) = b - a)]
       exact this
-    apply hoeffding_nonneg _ _ _ _ (by linarith : 0 ≤ - t) hX.neg
+    apply hoeffding_nonneg μ (-t) (-b) (-a) (X := fun ω ↦ -X ω) (by linarith : 0 ≤ - t) hX.neg
     · simp only [Set.mem_Icc, neg_le_neg_iff, Filter.eventually_and]
       exact ⟨h.mono fun ω h ↦ h.2, h.mono fun ω h ↦ h.1⟩
     · rw [integral_neg]

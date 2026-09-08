@@ -23,7 +23,7 @@ lemma closure_mem_le_sSup
     b ≤ sSup s := by
   have hsubset : s ⊆ Set.Iic (sSup s) := by
     intro x hx
-    exact ConditionallyCompleteLattice.le_csSup s x hs hx
+    exact le_csSup hs hx
   have hclosure : closure s ⊆ Set.Iic (sSup s) :=
     closure_minimal hsubset isClosed_Iic
   exact hclosure hb
