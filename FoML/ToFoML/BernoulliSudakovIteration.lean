@@ -17,7 +17,7 @@ import FoML.ToFoML.BernoulliSudakovCritical
 /-!
 # Bernoulli–Sudakov minoration: the multiscale iteration (B11)
 
-Row B11 of the Bernoulli–Sudakov blueprint (lean-deepgen's `00note/sudakov-math.md`, §2 step S11, §4 item 6;
+Row B11 of the Bernoulli–Sudakov blueprint (the Bernoulli–Sudakov blueprint of lean-deepgen: Talagrand ULB §6.4 + Sudakov–Fernique; §2 step S11, §4 item 6;
 ULB pp. 186–187). We remove the diameter hypothesis `‖u_j‖₂ ≤ 2a` from the subset-selection
 lemma `lem:bernoulli-subset-selection` (B9) and prove the unnormalised minoration
 

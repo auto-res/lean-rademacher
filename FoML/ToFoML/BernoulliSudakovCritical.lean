@@ -18,7 +18,7 @@ import FoML.ToFoML.BernoulliSudakovTruncation
 /-!
 # Bernoulli–Sudakov minoration: the critical case and subset selection
 
-Rows B7 and B9 of the Bernoulli–Sudakov blueprint (lean-deepgen's `00note/sudakov-math.md`, §2 steps S9–S10,
+Rows B7 and B9 of the Bernoulli–Sudakov blueprint (the Bernoulli–Sudakov blueprint of lean-deepgen: Talagrand ULB §6.4 + Sudakov–Fernique; §2 steps S9–S10,
 §4 item 5).
 
 For `u : Fin M → Fin n → ℝ` write `b(u) := bernoulliSup u` for the one-sided Rademacher average
