@@ -20,7 +20,7 @@ import FoML.ToFoML.DudleySubGaussian
 
 This file collects the elementary, purely Bernoulli/combinatorial ingredients of the proof of the
 Bernoulli–Sudakov minoration `bernoulli_sudakov` (`FoML.ToFoML.BernoulliSudakov`),
-following the blueprint lean-deepgen's `00note/sudakov-math.md` (route ULB §6.4 + Sudakov–Fernique). Nothing
+following the Bernoulli–Sudakov blueprint of lean-deepgen (route ULB §6.4 + Sudakov–Fernique). Nothing
 here depends on the Gaussian side.
 
 Notation. For `u : Fin M → Fin n → ℝ` the **Bernoulli supremum** is the counting average over

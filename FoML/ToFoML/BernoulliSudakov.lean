@@ -18,7 +18,7 @@ import FoML.ToFoML.BernoulliSudakovIteration
 /-!
 # The Bernoulli–Sudakov minoration (B12)
 
-Row B12 of the Bernoulli–Sudakov blueprint (lean-deepgen's `00note/sudakov-math.md`, §2 "final normalisation"):
+Row B12 of the Bernoulli–Sudakov blueprint (the Bernoulli–Sudakov blueprint of lean-deepgen: Talagrand ULB §6.4 + Sudakov–Fernique; §2 "final normalisation"):
 the theorem `bernoulli_sudakov` (`thm:bernoulli-sudakov`) in the normalised form used by the
 conditional Sudakov-type lower bound `thm:sudakov-type` (`LeanDeepgen.Bounds.Sudakov` in lean-deepgen):
 

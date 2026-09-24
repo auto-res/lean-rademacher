@@ -6,7 +6,7 @@ import FoML.ToMathlib.SudakovFernique
 /-!
 # The Gaussian Sudakov minoration
 
-Row G8 of the Bernoulli–Sudakov blueprint (lean-deepgen's `00note/sudakov-math.md`, §2 step S4).
+Row G8 of the Bernoulli–Sudakov blueprint (the Bernoulli–Sudakov blueprint of lean-deepgen: Talagrand ULB §6.4 + Sudakov–Fernique; §2 step S4).
 
 For `u : Fin M → Fin N → ℝ` write `g(u) := ∫ max_j ⟨u_j, g⟩ dγ_N` for the expected maximum of
 the Gaussian process `X_j = ⟨u_j, g⟩`, `g ~ N(0,1)^{⊗N}`. If the vectors `u_j` are

@@ -7,7 +7,7 @@ import FoML.ToMathlib.LogSumExp
 /-!
 # The Sudakov–Fernique comparison inequality
 
-Rows G6–G7 of the Bernoulli–Sudakov blueprint (lean-deepgen's `00note/sudakov-math.md`, §2 step S3).
+Rows G6–G7 of the Bernoulli–Sudakov blueprint (the Bernoulli–Sudakov blueprint of lean-deepgen: Talagrand ULB §6.4 + Sudakov–Fernique; §2 step S3).
 
 Gaussian vectors are linear images of the standard Gaussian: for `A : Matrix (Fin M) (Fin N) ℝ`
 and `g ~ stdGaussianPi N`, `X := A.mulVec g` is a centred Gaussian vector with covariance

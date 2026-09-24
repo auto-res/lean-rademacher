@@ -23,7 +23,7 @@ This file provides the Gaussian-side ingredients of the proof of the Bernoulli�
 minoration `bernoulli_sudakov` (`FoML.ToFoML.BernoulliSudakov`) that connect the
 standard Gaussian measure `γₙ = stdGaussianPi n` with the Bernoulli supremum
 `bernoulliSup u` of `FoML.ToFoML.BernoulliSudakovTools`, following the blueprint
-lean-deepgen's `00note/sudakov-math.md` (steps S5–S8).
+the Bernoulli–Sudakov blueprint of lean-deepgen (Talagrand ULB §6.4, steps S5–S8).
 
 * **B1** (`lem:gaussian-sign-symmetrization`, `lem:gaussian-integral-eq-sign-average`): for every
   sign pattern `σ ∈ {±1}ⁿ` the map `x ↦ σ ⊙ x` preserves `γₙ`, hence
