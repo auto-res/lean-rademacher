@@ -26,6 +26,7 @@ lemma empiricalDist_def (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) :
     empiricalDist S f g = empiricalNorm S (f - g) :=
   rfl
 
+@[reducible]
 noncomputable def empiricalPMet (S : Fin n → 𝒳) :
     PseudoMetricSpace (𝒳 → ℝ) where
   dist := fun f g => empiricalDist S f g
@@ -84,8 +85,7 @@ lemma empiricalDist_neg_neg (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) :
 
 @[simp] lemma empiricalDist_comm (S : Fin n → 𝒳) (f g : 𝒳 → ℝ) :
     empiricalDist S f g = empiricalDist S g f := by
-  letI := empiricalPMet S
-  simpa [empiricalDist] using (dist_comm (x := f) (y := g))
+  exact (empiricalPMet S).dist_comm f g
 
 lemma empiricalDist_proj (S : Fin n → 𝒳) (f : 𝒳 → ℝ) (i : Fin n):
     |f (S i)|/√n ≤ empiricalNorm S f := by
@@ -183,7 +183,7 @@ lemma card_empiricalFunctionSpace [Fintype ι] :
 instance : CoeFun (EmpiricalFunctionSpace F S) (fun _ ↦ 𝒳 → ℝ) where
   coe f := F f.index
 
-@[simp] lemma EmpiricalFunctionSpace.coe_apply
+lemma EmpiricalFunctionSpace.coe_apply
     (q : EmpiricalFunctionSpace F S) :
     (q : 𝒳 → ℝ) = F q.index := rfl
 

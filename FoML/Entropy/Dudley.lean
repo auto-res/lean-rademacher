@@ -130,7 +130,7 @@ lemma coveringNumber_signSymmetrization_le_two_mul
           dsimp only [center]
           exact (signSymmetrizationNegMap_isometry
             (F := F) (S := S)).dist_eq _ _
-        _ < ε := by simpa [Metric.mem_ball] using hyball
+        _ < ε := Metric.mem_ball.mp hyball
   · let center :=
       signSymmetrizationPosMap (F := F) (S := S) y
     refine ⟨center, ?_, ?_⟩
@@ -146,7 +146,7 @@ lemma coveringNumber_signSymmetrization_le_two_mul
           dsimp only [center]
           exact (signSymmetrizationPosMap_isometry
             (F := F) (S := S)).dist_eq _ _
-        _ < ε := by simpa [Metric.mem_ball] using hyball
+        _ < ε := Metric.mem_ball.mp hyball
 
 variable {c : ℝ}
   -- Dyadic radius sequence, associated cover, and cover cardinality.
@@ -519,7 +519,8 @@ private lemma empiricalDist_to_chainApprox_le_ej (c_pos : 0 < c) (h : TotallyBou
   empiricalDist S (F fh) (chainApprox c_pos h fh n) ≤ c / 2 ^ n := by
   by_cases h' : n = 0
   · simpa [chainApprox_def c_pos h, h'] using cs fh
-  · simpa [chainApprox_def c_pos h, h'] using (Classical.choose_spec (exists_cover_approximation c_pos h fh n)).2
+  · simp [chainApprox_def c_pos h, h']
+    exact (Classical.choose_spec (exists_cover_approximation c_pos h fh n)).2
 
 private lemma signed_sum_le_empiricalDist (f g : Z → ℝ) (σ : Signs m) :
   ∑ i : Fin m, (σ i : ℝ) * (f (S i) - g (S i)) ≤ m * empiricalDist S f g := by
@@ -938,6 +939,7 @@ private lemma massart_bound_for_increment_term (c_pos : 0 < c) (h' : TotallyBoun
       simp only [sq_abs, Nat.cast_nonneg, pow_succ_nonneg, Real.sqrt_div', Real.sqrt_sq]
       field_simp
       norm_cast
+      positivity
 
 private lemma partB_sum_bound_via_massart (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (EmpiricalFunctionSpace F S))) (n : ℕ) (m_pos : 0 < m)
   (cs : ∀ f : ι, empiricalNorm S (F f) ≤ c) (n_pos : 0 < n):
@@ -978,8 +980,8 @@ private lemma partB_sum_bound_via_massart (c_pos : 0 < c) (h' : TotallyBounded (
         · simp; exact (Set.Finite.toFinset_nonempty (finite_incrementSet c_pos h' n j)).mp (incrementFinset_nonempty c_pos h' n j)
         · norm_cast
           apply (incrementFinset_card_le_incrementPairFinset_card c_pos h' n j).trans
-          convert (incrementPairFinset_card_le_cover_product_card c_pos h' n j n_pos)
-          <;> rw [coveringFinset_card]
+          refine (incrementPairFinset_card_le_cover_product_card c_pos h' n j n_pos).trans_eq ?_
+          rw [coveringFinset_card, coveringFinset_card]
       · obtain ⟨fh⟩ := (by assumption : Nonempty ι)
         have hem : ⟨chainApprox c_pos h' fh (j + 1), chainApprox c_pos h' fh j⟩ ∈ incrementPairFinset c_pos h' n j := by
           simp only [Set.Finite.mem_toFinset, incrementPairFinset, incrementPairSet]
@@ -1007,6 +1009,7 @@ private lemma partB_bound (c_pos : 0 < c) (h' : TotallyBounded (Set.univ : Set (
     rw [Mathlib.Tactic.LinearCombination.mul_eq_const]
     rw [Finset.sup'_div₀]
     norm_cast
+    positivity
   _ ≤ ∑ j : Fin n, ((6 * (ej c (j+1) - ej c (j+2))/ Real.sqrt m) * (√(2 * Real.log ((coveringNumber h' (ej c (j+1))) * (coveringNumber h' (ej c j)))))) := by
     refine Finset.sum_le_sum ?_
     intro j hj
@@ -1378,22 +1381,11 @@ private lemma choose_dyadic_scale_for_epsilon (ε : ℝ) (ε_pos : 0 < ε) (c_ε
           refine (lt_div_iff₀' ?_).mp c_ε
           norm_num
         exact (lt_div_iff₀ ε_pos).mpr r00
-      have r1 : (2 : ℝ) < (2 : ℝ) ^ (↑m0 + 1) := by
-        norm_cast at hm2
-        apply lt_of_lt_of_le r0
-        norm_cast
-      simp at r1
-      have r2 : (2 ^ 1 : ℝ) < 2 ^ (m0 + 1) := by
-        norm_num
-        exact r1
-      have r3 : (1 : ℝ) < (m0 + 1) := by
-        norm_cast
-        norm_cast at r2
-        rw [<- Nat.pow_lt_pow_iff_right]
-        exact r2
-        norm_cast
-      norm_cast at r3
-      linarith
+      rcases Nat.eq_zero_or_pos m0 with hm0 | hm0
+      · subst hm0
+        simp only [Nat.cast_zero, zero_add, Real.rpow_one] at hm2
+        linarith
+      · exact hm0
     have p0 : ε < c / 2 ^ (↑m0) := by
       have htmp := mul_lt_mul_of_pos_right hm1 ε_pos
       have htmp_mul : ε * 2 ^ (↑m0) < c := by

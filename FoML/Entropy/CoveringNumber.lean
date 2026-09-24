@@ -22,7 +22,6 @@ lemma coveringNumber_exists {X : Type*} {A : Set X} [PseudoMetricSpace X] (ha : 
   constructor
   · exact Set.toFinset_card t
   · convert tball
-    ext _
     simp only [Set.mem_toFinset]
 
 noncomputable def coveringNumber {X : Type*} [PseudoMetricSpace X] {A : Set X} (ha : TotallyBounded A) (ε : ℝ): ℕ :=

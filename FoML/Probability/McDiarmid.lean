@@ -71,14 +71,17 @@ theorem ProbabilityTheory.iIndepFun.comp_right
     intro i hi
     dsimp only [f₁]
     rw [dif_pos hi]
-    have := h₁' (invg ⟨i,hi⟩).1 (invg ⟨i,hi⟩).2.1
-    rw [(invg ⟨i, hi⟩).2.2] at this
-    exact this
+    have key : ∀ j : ι', j ∈ s' → g j = i →
+        @MeasurableSet Ω (MeasurableSpace.comap (f i) (mβ i)) (f₁' j) := by
+      intro j hjs hji
+      subst hji
+      exact h₁' j hjs
+    exact key _ (invg ⟨i, hi⟩).2.1 (invg ⟨i, hi⟩).2.2
 
   calc
     _ = μ (⋂ i ∈ s, f₁ i) := by
       apply congrArg
-      apply HasSubset.Subset.antisymm
+      apply Set.Subset.antisymm
       · intro x hx
         apply Set.mem_iInter₂_of_mem
         intro i hi
@@ -162,21 +165,17 @@ lemma Y_snoc_eq
   apply congr rfl
   ext i
   if h : i.1 < k.1 then
-    have : i.1<(Fin.succ k).1 := by dsimp; linarith
-    rw [dif_pos this, dif_pos h]
-    have : ⟨i.1, this⟩ = (⟨i.1, h⟩ : Fin k).castSucc := rfl
-    rw [this]
-    apply Fin.snoc_castSucc
+    have hi : i.1<(Fin.succ k).1 := by dsimp; linarith
+    rw [dif_pos hi, dif_pos h]
+    exact Fin.snoc_castSucc (α := fun _ ↦ 𝓧) (p := Xk) (x := x) (i := ⟨i.1, h⟩)
   else
     rw [dif_neg h]
     if h2 : i.1 = k.1 then
-      have : i.1 < (Fin.succ k).1 := by dsimp; linarith
-      rw [dif_pos this, if_pos h2]
-      have : ⟨i.1, this⟩ = Fin.last k := by
-        apply Eq.symm
-        apply Fin.eq_mk_iff_val_eq.mpr
-        exact id (Eq.symm h2)
-      rw [this]
+      have hi : i.1 < (Fin.succ k).1 := by dsimp; linarith
+      rw [dif_pos hi, if_pos h2]
+      have hlast : (⟨i.1, hi⟩ : Fin (k.1 + 1)) = Fin.last k := Fin.ext h2
+      show (Fin.snoc Xk x : Fin (k.1 + 1) → 𝓧) ⟨i.1, hi⟩ = x
+      rw [hlast]
       apply Fin.snoc_last
     else
       have : ¬ (i.1 < (Fin.succ k).1) := by
@@ -195,7 +194,7 @@ lemma bound_f'
   have h (k : ℕ) : (h' : k ≤ m) → ∀ xi : (Fin m → 𝓧), |f' xi| ≤
     |f' (fun i ↦ if i.1 < k then x₀ else xi i)| + ∑ (i : Fin k), c' ⟨i.1, by linarith [i.2, h']⟩  := by
     induction' k with k ih
-    · simp only [zero_le, not_lt_zero', ↓reduceIte, Finset.univ_eq_empty, Finset.sum_empty,
+    · simp only [zero_le, not_lt_zero, ↓reduceIte, Finset.univ_eq_empty, Finset.sum_empty,
       add_zero, le_refl, implies_true]
     · intro h' xi
       apply le_trans <| ih (by linarith [h']) xi
@@ -463,17 +462,14 @@ lemma hmartingale
       rw [dif_pos h]
       have : i.1 < k.succ := Nat.lt_succ_of_lt h
       rw [dif_pos this]
-      dsimp
-      have : (⟨i.1, this⟩ : Fin k.succ) = (⟨i.1,h⟩ : Fin k).castSucc := rfl
-      rw [this, Fin.snoc_castSucc]
+      exact Fin.snoc_castSucc (α := fun _ ↦ 𝓧) (p := Xk) (x := X' k ω) (i := ⟨i.1, h⟩)
     else
       rw [dif_neg h]
       if h' : i.1 = k.1 then
         rw [dif_pos h', h']
         have : k.1 < k.succ := Nat.lt_add_one k.1
         rw [dif_pos this]
-        have : ⟨k.1, this⟩ = Fin.last k := rfl
-        rw [this, Fin.snoc_last]
+        exact Fin.snoc_last (α := fun _ ↦ 𝓧) (p := Xk) (x := X' k ω)
       else
         rw [dif_neg h']
         have : ¬ i.1 < k.succ := by
@@ -492,6 +488,7 @@ lemma hmartingale
       rw [dif_pos h]
       have : i.1 < k.castSucc.1 := h
       rw [dif_pos this]
+      rfl
     else
       rw [dif_neg h]
       have : ¬ i.1 < k.castSucc.1 := h
@@ -562,15 +559,13 @@ lemma hhoeffding_V
           dsimp [Fin.snoc]
           rw [dif_pos h]
           exact rfl
-        rw [this]
-        exact measurable_const
+        exact (congrArg Measurable this).mpr measurable_const
     else
       have : (fun ω ↦ (Fin.snoc Xk (X' k ω) : Fin k.succ → 𝓧) i) = fun ω ↦ X' k ω := by
         ext ω
         dsimp [Fin.snoc]
         rw [dif_neg h]
-      rw [this]
-      exact hX'' k
+      exact (congrArg Measurable this).mpr (hX'' k)
   calc
     _ ≤ ((t''^2 * (b - a)^2 / 8).exp : ℝ) := by
       apply hoeffding μ t'' a b
@@ -638,7 +633,7 @@ lemma heqind
   let E := Y 0 (fun _ ↦ x₀)
 
   induction' k with k ih
-  · simp only [Nat.succ_eq_add_one, Fin.val_zero, not_lt_zero', ↓reduceDIte,
+  · simp only [Nat.succ_eq_add_one, Fin.val_zero, not_lt_zero, ↓reduceDIte,
     sub_self, mul_zero, Real.exp_zero, integral_const, probReal_univ, smul_eq_mul, mul_one,
     Finset.univ_eq_empty, Finset.sum_empty, zero_div, le_refl, expressionY]
   · have ih := ih <| Nat.le_of_succ_le h
@@ -804,8 +799,7 @@ lemma heqind
                     dsimp only [Fin.snoc]
                     rw [dif_pos h']
                     simp
-                  rw [this]
-                  apply (hX'' _).comp measurable_snd
+                  exact (congrArg Measurable this).mpr ((hX'' _).comp measurable_snd)
                 else
                   have : (fun c : Ω × Ω ↦
                     @Fin.snoc k (fun _ ↦ 𝓧) (fun i : Fin k ↦ X' (Fin.castLE h (Fin.castSucc i)) c.2) (X' ⟨k, h⟩ c.1) i)
@@ -814,8 +808,7 @@ lemma heqind
                     dsimp only [Fin.snoc]
                     rw [dif_neg h']
                     simp
-                  rw [this]
-                  apply (hX'' _).comp measurable_fst
+                  exact (congrArg Measurable this).mpr ((hX'' _).comp measurable_fst)
               · have : (fun a : Ω × Ω ↦ Y (⟨k, h⟩ : Fin m).castSucc fun i ↦ X' (Fin.castLE h (Fin.castSucc i)) a.2)
                   = (Y (⟨k, h⟩ : Fin m).castSucc) ∘ (fun a : Ω ↦ fun i ↦ X' (Fin.castLE h (Fin.castSucc i)) a) ∘ Prod.snd := rfl
                 dsimp
@@ -892,14 +885,15 @@ theorem mcdiarmid_inequality_aux
   have := heqind hX'' hIndep' hfι hf'' ht'' x₀  m le_rfl
   simp only [Nat.succ_eq_add_one, Fin.castLE_rfl, id_eq, Fin.is_lt, ↓reduceDIte, Fin.eta,
     integral_const, smul_eq_mul, Fin.val_zero,
-    not_lt_zero', expressionY] at this
+    not_lt_zero, expressionY] at this
   have hintegrable :
     Integrable (fun x ↦ Real.exp (t'' * ((Y ⟨m, Nat.lt_add_one_of_le le_rfl⟩ fun i ↦ X' (Fin.castLE le_rfl i) x) - E))) μ
     := hintegrablelefts hX'' hfι hf'' ht'' E m le_rfl
   simp only [Nat.succ_eq_add_one, Fin.castLE_rfl, id_eq, Fin.is_lt, ↓reduceDIte, Fin.eta,
     integral_const, smul_eq_mul, Fin.val_zero,
-    not_lt_zero', Y, expressionY, E] at hintegrable
+    not_lt_zero, Y, expressionY, E] at hintegrable
   convert (ProbabilityTheory.measure_ge_le_exp_mul_mgf ε ht'' hintegrable).trans _
+  · rfl
   · simp only [Function.comp_apply, ge_iff_le, probReal_univ, one_mul]
     rfl
   dsimp only [mgf]

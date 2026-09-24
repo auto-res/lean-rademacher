@@ -105,7 +105,7 @@ private lemma rademacher_sum_norm_sq_average
               (σ k : ℝ) ^ 2 = |(σ k : ℝ)| ^ 2 := (sq_abs _).symm
               _ = 1 := by rw [abs_sigma]; norm_num
           _ = Fintype.card (Signs n) := by simp
-      simpa only [if_pos rfl] using hdiag
+      simpa using hdiag
     · simpa [hkl] using rademacher_orthogonality n k l hkl
   calc
     (Fintype.card (Signs n) : ℝ)⁻¹ *

@@ -56,6 +56,7 @@ theorem uniform_deviation_expectation_le_two_smul_rademacher_complexity
       2 * rademacherComplexity n f μ X := by
   apply le_of_mul_le_mul_left _ (Nat.cast_pos.mpr hn)
   convert expectation_le_rademacher (μ := μ) (n := n) hf hb hf' using 1
+  · rfl
   · rw [← integral_const_mul]
     apply integral_congr_ae (Filter.EventuallyEq.of_eq _)
     ext ω
@@ -116,7 +117,7 @@ theorem uniform_deviation_mcdiarmid_tail
         μⁿ[fun ω : Fin n → Ω ↦ uniformDeviation n f μ X (X ∘ ω)] ≥ ε}).toReal ≤
       (-ε ^ 2 * t * n).exp := by
   by_cases hn : n = 0
-  · simpa [hn] using measureReal_le_one
+  · simp [hn, ← measureReal_def]
   have hn : 0 < n := Nat.pos_of_ne_zero hn
   have hfX : ∀ i, Measurable (f i ∘ X) := fun i ↦ (hf i).comp hX
   calc
@@ -144,12 +145,11 @@ theorem empiricalRademacherComplexity_lower_tail_countable
         rademacherComplexity n f μ X ≤ -ε}).toReal ≤
       (-ε ^ 2 * t * n).exp := by
   by_cases hn : n = 0
-  · simpa [hn] using measureReal_le_one
+  · simp [hn, ← measureReal_def]
   have hn : 0 < n := Nat.pos_of_ne_zero hn
   calc
     _ ≤ (-2 * ε ^ 2 * ((n : ℝ) * t / 2)).exp := by
-      simpa only [rademacherComplexity] using
-        (mcdiarmid_inequality_neg_iid_of_const
+      have key := mcdiarmid_inequality_neg_iid_of_const
           (μ := μ) (ι := Fin n) (X' := X)
           (f' := fun S : Fin n → 𝒳 ↦ empiricalRademacherComplexity n f S)
           (c := (n : ℝ)⁻¹ * 2 * b) hX
@@ -158,7 +158,9 @@ theorem empiricalRademacherComplexity_lower_tail_countable
           (measurable_empiricalRademacherComplexity_comp
             (Ω := 𝒳) (Z := 𝒳) (n := n) (f := f) (X := id)
             (fun i ↦ by simpa using hf i))
-          hε (by simpa using normalized_two_mul_bound_mcdiarmid_scale hn ht))
+          hε (by simpa using normalized_two_mul_bound_mcdiarmid_scale hn ht)
+      simp only [rademacherComplexity]
+      exact key
     _ = _ := congr_arg _ (by ring)
 
 /-- Optimized empirical-complexity lower tail with `t = 1 / (2 * b^2)`. -/
@@ -202,7 +204,7 @@ theorem uniform_deviation_tail_bound_countable
         uniformDeviation n f μ X (X ∘ ω)}).toReal ≤
       (-ε ^ 2 * t * n).exp := by
   by_cases hn : n = 0
-  · simpa [hn] using measureReal_le_one
+  · simp [hn, ← measureReal_def]
   have hn : 0 < n := Nat.pos_of_ne_zero hn
   apply measureReal_superlevel_le_of_centered
   · exact uniform_deviation_expectation_le_two_smul_rademacher_complexity
